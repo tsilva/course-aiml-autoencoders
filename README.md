@@ -1,62 +1,64 @@
-# Autoencoders: From Bottlenecks to Discrete Latents
+<div align="center">
+  <img src="./logo.png" alt="Autoencoders: From Bottlenecks to Discrete Latents" width="760" />
 
-This repository contains our experiment-first course on autoencoders,
-variational autoencoders, and vector-quantized autoencoders. It pairs concise,
-intuition-first lessons with inspectable implementations and controlled
-experiments so learners can connect model behavior to evidence.
+  **🧪 Learn autoencoders by predicting, running, and inspecting experiments. 🧪**
+</div>
 
-The step-by-step executable course starts at
-[course/README.md](course/README.md). Its canonical lessons are agent-editable
-Jupytext `py:percent` files; deterministic `.ipynb` builds are committed for
-Jupyter and GitHub readers.
+Autoencoders: From Bottlenecks to Discrete Latents is an executable Python
+course for learners and ML practitioners who want to understand AEs, VAEs, and
+VQ-VAEs through evidence as well as theory. Work through 14 Jupyter lessons,
+predict model behavior before each experiment, and use metrics,
+reconstructions, and diagnostics to explain what changed.
 
-List lessons from the terminal with:
+The curriculum progresses from deterministic bottlenecks to continuous and
+discrete latent spaces. Recipes define complete runs, studies vary one declared
+factor, generated runs hold evidence, and reports preserve conclusions. Start
+with the [course guide](course/README.md).
 
-```bash
-uv run course-aiml-autoencoders course
-uv run course-aiml-autoencoders course 00
-```
-
-The progression is deliberate:
-
-1. **AE:** what information survives a bottleneck?
-2. **VAE:** how does a prior make latent-space sampling meaningful?
-3. **VQ-VAE:** what changes when the representation becomes discrete?
-
-## Quick start
+## Install
 
 ```bash
-uv sync --locked
-uv run pytest
-uv run python scripts/build_notebooks.py --check
-uv run jupyter lab course/notebooks/01-mean-baseline.ipynb
-uv run course-aiml-autoencoders train recipes/smoke/fake-ae.yaml
-uv run course-aiml-autoencoders train recipes/smoke/fake-vae.yaml
-uv run course-aiml-autoencoders train recipes/smoke/fake-vqvae.yaml
-uv run course-aiml-autoencoders course
-uv run course-aiml-autoencoders train recipes/ae/ae-001-linear.yaml
-uv run course-aiml-autoencoders study studies/ae/ae-003-latent-capacity.yaml
+git clone https://github.com/tsilva/course-aiml-autoencoders.git
+cd course-aiml-autoencoders
+uv sync --frozen
 ```
 
-Fashion-MNIST is downloaded into `data/` on first use. Generated runs,
-checkpoints, and raw figures are stored in `runs/` and ignored by Git.
+Open the first laboratory lesson:
 
-## Repository contract
+```bash
+uv run --frozen python -m jupyterlab course/notebooks/00-laboratory.ipynb
+```
 
-- `src/course_aiml_autoencoders/` contains reusable implementation code.
-- `recipes/` contains complete executable configurations.
-- `studies/` contains questions, hypotheses, controlled variants, and required
-  evidence.
-- `reports/` contains conclusions worth preserving.
-- `runs/` contains disposable generated artifacts.
-- `course/notebook_sources/` contains the canonical executable lessons.
-- `course/notebooks/` contains deterministic generated Jupyter notebooks.
-- Notebooks probe the package, but never own reusable model or training logic.
+Jupyter prints the local URL to open in your browser.
 
-Every run writes its resolved configuration, JSONL metrics, summary, best
-checkpoint, and a fixed reconstruction grid. A study changes one declared
-variable at a time and can repeat variants across seeds.
+## Commands
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the learning sequence and
-[docs/EXPERIMENT_PROTOCOL.md](docs/EXPERIMENT_PROTOCOL.md) for the experiment
-rules.
+```bash
+uv run --frozen course-aiml-autoencoders course                          # list lessons
+uv run --frozen course-aiml-autoencoders course 00                       # show one lesson
+uv run --frozen course-aiml-autoencoders train recipes/smoke/fake-ae.yaml --device cpu
+uv run --frozen course-aiml-autoencoders train recipes/ae/ae-001-linear.yaml
+uv run --frozen course-aiml-autoencoders study studies/ae/ae-003-latent-capacity.yaml --seeds 0
+uv run --frozen course-aiml-autoencoders inspect <RUN_DIR>                # inspect evidence
+uv run --frozen python scripts/build_notebooks.py --check                 # verify notebooks
+uv run --frozen python -m pytest                                          # run tests
+```
+
+## Notes
+
+- Python 3.11 or 3.12 and [uv](https://docs.astral.sh/uv/) are required.
+- Fashion-MNIST downloads into ignored `data/` storage on first use. The fake
+  AE, VAE, and VQ-VAE smoke recipes exercise the pipeline without that dataset.
+- Each ignored `runs/` directory records the resolved configuration, metrics,
+  best checkpoint, summary, diagnostics, and figures needed to inspect a claim.
+- Canonical lessons live in Jupytext sources. Generated notebooks are
+  deterministic and output-free; training evidence belongs in `runs/`.
+- Use one seed while exploring and multiple seeds before promoting a close
+  numerical result into a report.
+- See the [learning roadmap](docs/ROADMAP.md),
+  [experiment protocol](docs/EXPERIMENT_PROTOCOL.md), and
+  [troubleshooting guide](course/TROUBLESHOOTING.md) for deeper guidance.
+
+## Architecture
+
+![Course and experiment architecture](./architecture.png)
