@@ -13,11 +13,15 @@ uv run python scripts/build_notebooks.py --check
 Every lesson must preserve the learning loop:
 
 1. State one learning objective.
-2. Ask for a mental prediction before revealing evidence.
-3. Expose relevant tensors, metrics, and images.
-4. Change one declared experimental variable.
-5. Name limitations and failure signatures.
-6. End with an advancement gate.
+2. Give the learner an intuitive mental model or metaphor.
+3. Build understanding through small, incremental, visible examples.
+4. Ask for a mental prediction before revealing evidence.
+5. Expose relevant tensors, metrics, images, and failure behavior.
+6. Explain what the model is for, how to use it, and its pros and cons.
+7. Use math when it resolves a real question; keep nonessential derivations in
+   optional collapsed sections rather than making them the main path.
+8. Change one declared experimental variable when comparing experiments.
+9. End with a collapsed advancement gate and expected reasoning.
 
 Keep reusable model, objective, training, and plotting logic in
 `src/latent_lab`.

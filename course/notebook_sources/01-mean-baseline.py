@@ -12,28 +12,25 @@
 # ---
 
 # %% [markdown]
-# # Lesson 01 — Why a reconstruction loss needs a baseline
+# # Lesson 01 — A reconstruction score needs a reference
 #
-# **Learning objective:** make the number called “MSE” interpretable by comparing
-# it with predictions that learn no input-dependent representation.
+# **Learning objective:** build an intuitive picture of what reconstruction MSE
+# notices, why a predictor that ignores its input can still earn a respectable
+# score, and how to use the mean-image baseline when judging an autoencoder.
 #
-# For image $x$ and reconstruction $\hat{x}$:
+# By the end, you should be able to explain:
 #
-# $$
-# \operatorname{MSE}(x,\hat{x})
-# = \frac{1}{CHW}\sum_{c,h,w}(x_{chw}-\hat{x}_{chw})^2
-# $$
+# - what MSE does in ordinary language;
+# - why the mean image is the best one-size-fits-all prediction under MSE;
+# - why a decent loss does not prove that a model understands its input;
+# - what the baseline is useful for, and what it cannot tell us.
 #
-# **No model is trained in this lesson.** We are constructing deliberately weak
-# predictors so that later model losses have a reference point. The central
-# question is:
-#
-# > How well can we score while learning nothing about the particular input?
+# **No model is trained in this lesson.** We first construct a deliberately lazy
+# competitor. In Lesson 02, an autoencoder will have to beat it.
 
 # %%
 import matplotlib.pyplot as plt
 import torch
-import torch.nn.functional as functional
 
 from latent_lab.config import load_yaml
 from latent_lab.course import balanced_class_batch, repository_root
@@ -53,62 +50,111 @@ names = class_names(config["dataset"]["name"])
 spec
 
 # %% [markdown]
-# ## Begin with one number, not 784 pixels
+# ## 1. Think of MSE as a pixel accountant
 #
-# MSE follows three operations:
+# Imagine placing two images on top of each other. A **pixel accountant** visits
+# each matching square and records how different its brightness is.
 #
-# 1. Find each prediction error: $x-\hat{x}$.
-# 2. Square it, making every error nonnegative and penalizing large misses more.
-# 3. Average the squared errors.
+# The accountant:
 #
-# Consider a “two-pixel image”:
+# 1. compares pixels at the same location;
+# 2. turns every miss into a positive penalty by squaring it;
+# 3. averages the penalties into one score.
 #
-# $$
-# x=[0,1],\qquad \hat{x}=[0,0.5]
-# $$
+# It does **not** know what a shirt is. It does not know that an object shifted
+# one pixel is still the same object. It only checks whether matching squares
+# contain matching numbers.
 #
-# The first pixel is exact. The second misses by $0.5$, so its squared error is
-# $0.25$. Averaging both pixels gives $\operatorname{MSE}=0.125$.
-#
-# Predict the MSE below before running the cell.
+# Let us give this accountant a tiny five-by-five symbol. The first candidate is
+# exact, the second loses one pixel, the third shifts the symbol, and the fourth
+# predicts black everywhere.
 
 # %%
-toy_target = torch.tensor([0.0, 1.0])
-toy_prediction = torch.tensor([0.0, 0.5])
-toy_errors = toy_target - toy_prediction
-toy_squared_errors = toy_errors.square()
-toy_mse = toy_squared_errors.mean()
+toy_target = torch.zeros(1, 1, 5, 5)
+toy_target[0, 0, 1, 1:4] = 1
+toy_target[0, 0, 1:4, 2] = 1
 
-print("errors:", toy_errors.tolist())
-print("squared errors:", toy_squared_errors.tolist())
-print("MSE:", float(toy_mse))
+perfect = toy_target.clone()
+one_pixel_missing = toy_target.clone()
+one_pixel_missing[0, 0, 3, 2] = 0
+shifted_right = torch.zeros_like(toy_target)
+shifted_right[:, :, :, 1:] = toy_target[:, :, :, :-1]
+all_black = torch.zeros_like(toy_target)
+
+toy_predictions = torch.cat(
+    [perfect, one_pixel_missing, shifted_right, all_black]
+)
+toy_targets = toy_target.expand(4, -1, -1, -1)
+toy_names = (
+    "perfect copy",
+    "one pixel missing",
+    "shifted right",
+    "all black",
+)
+toy_labels = torch.arange(len(toy_names))
+
+_ = plot_reconstruction_grid(
+    toy_targets,
+    toy_predictions,
+    labels=toy_labels,
+    class_names=toy_names,
+    max_items=4,
+    include_error=True,
+)
+
+# %%
+toy_mse = (
+    (toy_targets - toy_predictions)
+    .square()
+    .flatten(start_dim=1)
+    .mean(dim=1)
+)
+for name, error in zip(toy_names, toy_mse, strict=True):
+    print(f"{name:>18}: MSE {float(error):.3f}")
 
 # %% [markdown]
-# Fashion-MNIST has $1\times28\times28=784$ pixel values per image. Its MSE is
-# the same calculation over 784 values instead of two.
+# Read the picture by rows:
 #
-# This averaging convention matters. A **mean** pixel loss and a **sum** pixel
-# loss describe the same errors on very different numeric scales.
+# - **Input:** the answer we wanted.
+# - **Reconstruction:** the candidate answer.
+# - **Squared error:** the squares where the pixel accountant charged us.
+#
+# Missing one of 25 pixels causes one charge. Shifting the symbol changes
+# several locations, even though a person still recognizes the same symbol.
+# This is MSE's central strength and limitation: it is a precise measure of
+# pixel agreement, not a measure of human-perceived meaning.
 #
 # <details>
-# <summary>Quick check: what happens if every pixel misses by 0.1?</summary>
+# <summary>Optional math: what number is the accountant computing?</summary>
 #
-# Every squared error is $0.1^2=0.01$, so their mean is also $0.01$. Image size
-# does not change mean MSE when every pixel has the same error.
+# For an image $x$ and reconstruction $\hat{x}$:
+#
+# $$
+# \operatorname{MSE}(x,\hat{x})
+# = \frac{1}{CHW}\sum_{c,h,w}(x_{chw}-\hat{x}_{chw})^2
+# $$
+#
+# $C$, $H$, and $W$ are the channel, height, and width counts. The formula says:
+# square every matching-pixel difference, then take their mean. For images whose
+# values lie in $[0,1]$, MSE also lies in $[0,1]$.
+# </details>
+#
+# <details>
+# <summary>Question: why can a small shift receive a surprisingly large penalty?</summary>
+#
+# The accountant has no concept of “the same object moved slightly.” Pixels that
+# used to contain the object become wrong, and pixels at the new location also
+# become wrong. One semantic change creates errors along multiple pixel edges.
 # </details>
 
 # %% [markdown]
-# ## First look at the dataset
+# ## 2. Meet the actual images
 #
-# Before discussing loss, establish the data contract:
+# Before trusting any score, look at what is being scored. Fashion-MNIST contains
+# centered grayscale garments on a mostly black 28-by-28 canvas.
 #
-# - One grayscale channel
-# - $28\times28$ pixels
-# - Pixel values in $[0,1]$
-# - Ten garment classes
-#
-# A class-balanced view prevents the first shuffled batch from defining your
-# mental picture of the dataset.
+# We deliberately select one validation example from every class. Otherwise, one
+# convenient batch could give us a misleading picture of the dataset.
 
 # %%
 class_images, class_labels = balanced_class_batch(
@@ -128,155 +174,145 @@ _ = plot_image_grid(
 )
 
 # %% [markdown]
-# The printed shape is `[10, 1, 28, 28]`:
+# The shape `[10, 1, 28, 28]` means:
 #
-# - `10`: one selected example for each class
-# - `1`: one grayscale channel
-# - `28, 28`: image height and width
+# - `10`: one selected image for each class;
+# - `1`: one grayscale channel;
+# - `28, 28`: image height and width.
 #
-# The pictures also reveal a dataset shortcut: much of every image is black
-# background. A predictor can be correct on many pixels without recognizing a
-# garment.
-#
-# **Stop and explain:** why would “predict black everywhere” be a stronger
-# baseline here than it would be for photographs that fill the frame?
+# Notice the large black regions. Those pixels are easy points for a predictor:
+# outputting zero is often correct even if the predictor has no idea which
+# garment is present.
 #
 # <details>
-# <summary>Reveal the reasoning</summary>
+# <summary>Question: why is “predict black” less absurd here than for a photograph that fills the frame?</summary>
 #
-# Fashion-MNIST centers a small grayscale object on a black canvas, so many
-# target pixels are exactly or nearly zero. Predicting zero gets those pixels
-# right without identifying the object. In a photograph that fills the frame,
-# far fewer pixels would be correctly predicted by a single black value.
+# Every Fashion-MNIST object sits on a black canvas, so many target pixels are
+# already zero or almost zero. A black prediction gets all those locations right
+# for free. A photograph usually contains information across most of the frame,
+# so black would be wrong in many more places.
 # </details>
 
 # %% [markdown]
-# ## Predict before revealing the mean
+# ## 3. The lazy artist challenge
 #
-# Write down:
+# Suppose an artist must reconstruct every customer’s garment—but refuses to
+# look at the garment first. The artist is allowed to paint **one reusable
+# poster** and hand that same poster to everyone.
 #
-# 1. Which shared shapes will survive averaging 60,000 garments?
-# 2. Will any individual class remain recognizable?
-# 3. Why might the result still receive a nonterrible MSE?
+# This sounds useless, and it is useless for recognizing individual inputs. But
+# it gives us a vital reference:
+#
+# > How well can someone score without using the input at all?
+#
+# If an autoencoder cannot beat this lazy artist, its impressive-looking loss
+# number tells us very little.
+#
+# **Predict before revealing the poster:**
+#
+# - What will remain after averaging many shirts, shoes, bags, and trousers?
+# - Will a particular class remain recognizable?
+# - Why might the result still achieve a nonterrible MSE?
 #
 # <details>
-# <summary>Reveal the expected reasoning</summary>
+# <summary>Reveal the expected intuition</summary>
 #
-# The average should preserve a centered, vertically oriented garment-like
-# glow, with brighter regions where many classes overlap. Class-specific edges
-# should blur together, so no single class should be reliably recognizable.
-# The score can remain nonterrible because common black background and common
-# object locations account for many pixels.
+# Shared structure should survive: a dark background and a pale, centered
+# garment-like region. Incompatible details should blur together, so no one
+# class should be cleanly recognizable. The poster can still score reasonably
+# because it gets common background and common object locations approximately
+# right.
 # </details>
 
 # %% [markdown]
-# ## Why the mean is the best constant prediction
+# ## 4. Watch an average turn into a ghost
 #
-# “Constant” means the prediction cannot change when the input changes. Imagine
-# choosing one value $a$ for one fixed pixel location. Across $N$ training
-# images, that pixel contains values $x_1,\ldots,x_N$. Its average squared loss
-# is:
+# Averaging images resembles taking a long-exposure group photograph. Features
+# that repeatedly occupy the same place remain visible. Features that disagree
+# from image to image fade into a ghost.
 #
-# $$
-# L(a)=\frac{1}{N}\sum_{i=1}^{N}(x_i-a)^2
-# $$
-#
-# Differentiate with respect to the prediction:
-#
-# $$
-# \frac{dL}{da}
-# =\frac{2}{N}\sum_{i=1}^{N}(a-x_i)
-# $$
-#
-# At the minimum the derivative is zero:
-#
-# $$
-# Na-\sum_i x_i=0
-# \quad\Longrightarrow\quad
-# a=\frac{1}{N}\sum_i x_i
-# $$
-#
-# So the best constant value for each pixel is that pixel’s training-set mean.
-# Applying this argument independently at all 784 locations produces the mean
-# training image.
-#
-# This is not a fact about neural networks. It follows directly from squared
-# error.
+# We will average 1, 10, 100, 1,000, and finally all 60,000 training images.
 
 # %%
+preview_batches = []
+preview_count = 0
+for inputs, _labels in train_loader:
+    preview_batches.append(inputs)
+    preview_count += inputs.shape[0]
+    if preview_count >= 1_000:
+        break
+
+preview_images = torch.cat(preview_batches)[:1_000]
+snapshot_counts = (1, 10, 100, 1_000)
+average_snapshots = [
+    preview_images[:count].mean(dim=0, keepdim=True)
+    for count in snapshot_counts
+]
+
 device = torch.device("cpu")
 mean_image, train_examples = compute_mean_image(train_loader, device)
-print("training examples averaged:", train_examples)
+average_snapshots.append(mean_image.cpu())
+average_snapshots = torch.cat(average_snapshots)
+
+snapshot_names = (
+    "1 image",
+    "10 images",
+    "100 images",
+    "1,000 images",
+    f"{train_examples:,} images",
+)
 _ = plot_image_grid(
-    mean_image,
-    title="Pixelwise mean training image",
-    max_items=1,
+    average_snapshots,
+    labels=torch.arange(len(snapshot_names)),
+    class_names=snapshot_names,
+    title="Individual details fade; shared locations survive",
+    max_items=len(snapshot_names),
 )
 
 # %% [markdown]
-# The mean was computed from **training images only**. Later cells evaluate it
-# on the separate validation set. Computing the predictor from validation
-# images would leak information from the data used to judge it.
+# At one image, we see an individual garment. As the crowd grows:
 #
-# ## Verify the derivation at one pixel
+# - the black background stays black because most images agree there;
+# - the center remains bright because garments usually occupy it;
+# - sleeves, shoes, bags, and trouser legs disagree and blur together.
 #
-# The center pixel takes different values across garments. We can try every
-# constant prediction from 0 to 1 and measure its training MSE. The curve should
-# reach its minimum at the empirical mean.
-
-# %%
-center_values = torch.cat(
-    [inputs[:, 0, 14, 14] for inputs, _labels in train_loader]
-)
-candidate_values = torch.linspace(0, 1, 101)
-candidate_losses = (
-    center_values[:, None] - candidate_values[None, :]
-).square().mean(dim=0)
-best_candidate = candidate_values[candidate_losses.argmin()]
-empirical_mean = center_values.mean()
-
-figure, axis = plt.subplots(figsize=(7, 4))
-axis.plot(candidate_values, candidate_losses)
-axis.axvline(
-    float(empirical_mean),
-    color="red",
-    linestyle="--",
-    label=f"pixel mean = {empirical_mean:.3f}",
-)
-axis.set(
-    xlabel="Constant prediction for center pixel",
-    ylabel="Training MSE at that pixel",
-    title="Squared error is minimized by the mean",
-)
-axis.legend()
-axis.grid(alpha=0.25)
-figure.tight_layout()
-
-print("best value on the grid:", float(best_candidate))
-print("empirical pixel mean:", float(empirical_mean))
-
-# %% [markdown]
-# The grid search and the derivative agree. The tiny difference, if any, comes
-# from testing candidate values only in increments of 0.01.
+# The final result is the **mean training image**: a statistical summary, not a
+# remembered example and not a newly imagined garment.
+#
+# We compute it from training data only, then judge it on validation data. Using
+# validation images to design the poster would let the test influence the answer.
 #
 # <details>
-# <summary>Why is the mean image blurry?</summary>
+# <summary>Optional math: why is the mean the best reusable poster under MSE?</summary>
 #
-# A pixel is bright only when some garment occupies that location. Averaging
-# shoes, trousers, shirts, and bags mixes mutually incompatible shapes. The
-# result represents where Fashion-MNIST objects are commonly bright, not a
-# coherent garment.
+# Focus on one pixel location. If its training values are
+# $x_1,\ldots,x_N$, a constant prediction $a$ has loss
+#
+# $$
+# L(a)=\frac{1}{N}\sum_i(x_i-a)^2.
+# $$
+#
+# If $a$ is below the mean, increasing it reduces more squared error than it
+# adds. If it is above the mean, decreasing it helps. At the mean, the upward
+# and downward pulls balance. The derivative confirms the same result:
+#
+# $$
+# \frac{dL}{da}=\frac{2}{N}\sum_i(a-x_i)=0
+# \quad\Longrightarrow\quad
+# a=\frac{1}{N}\sum_i x_i.
+# $$
+#
+# Applying that choice independently at every pixel creates the mean image.
 # </details>
 
 # %% [markdown]
-# ## The input-independent reconstruction
+# ## 5. Hand the same poster to every customer
 #
-# Under squared error, the best constant prediction is the training-set mean.
-# “Best constant” is the important qualifier: it says nothing about encoding
-# the input.
+# Now comes the crucial probe. Each input below is different, but every
+# “reconstruction” is exactly the same mean image.
 
 # %%
-constant_predictions = mean_image.expand(class_images.shape[0], -1, -1, -1)
+constant_predictions = mean_image.cpu().expand_as(class_images)
 _ = plot_reconstruction_grid(
     class_images,
     constant_predictions,
@@ -286,254 +322,233 @@ _ = plot_reconstruction_grid(
     include_error=True,
 )
 
-# %% [markdown]
-# Every reconstruction row is identical. If you can infer the input class from
-# a prediction, you are using information that the predictor itself did not use.
-#
-# Read the three rows as:
-#
-# 1. **Input:** what the predictor was asked to reconstruct.
-# 2. **Reconstruction:** what it predicted.
-# 3. **Squared error:** where the prediction and target disagree; brighter means
-#    a larger contribution to MSE.
-#
-# Inspect the squared-error row. Background pixels dominate the image and are
-# predicted well; errors concentrate around class-specific silhouettes and
-# details.
-
 # %%
+largest_prediction_difference = (
+    constant_predictions - constant_predictions[0:1]
+).abs().max()
 print(
-    "largest difference between any two baseline predictions:",
-    float(
-        (
-            constant_predictions
-            - constant_predictions[0:1]
-        ).abs().max()
-    ),
+    "largest difference between any two predictions:",
+    float(largest_prediction_difference),
 )
 
 # %% [markdown]
-# That value is exactly zero. The prediction is invariant to the input.
+# The input row contains ten classes. The reconstruction row contains one ghost
+# repeated ten times. The printed difference is zero.
 #
-# This is the critical failure the scalar loss does not announce: a baseline
-# can receive a finite, apparently respectable score while discarding every bit
-# of information about which example it was given.
+# This is the fastest conceptual test for input dependence:
 #
-# ## Why black is not as absurd as it sounds
+# > If I swap the input, can the output change?
 #
-# Let us measure how many validation pixels are nearly black, then separate the
-# mean-image baseline’s squared error over dark and non-dark target pixels.
-
-# %%
-dark_threshold = 0.05
-dark_pixels = 0
-bright_pixels = 0
-dark_squared_error = 0.0
-bright_squared_error = 0.0
-
-for inputs, _labels in validation_loader:
-    predictions = mean_image.expand(inputs.shape[0], -1, -1, -1)
-    squared_error = (inputs - predictions).square()
-    dark_mask = inputs <= dark_threshold
-    bright_mask = ~dark_mask
-    dark_pixels += int(dark_mask.sum())
-    bright_pixels += int(bright_mask.sum())
-    dark_squared_error += float(squared_error[dark_mask].sum())
-    bright_squared_error += float(squared_error[bright_mask].sum())
-
-total_pixels = dark_pixels + bright_pixels
-print(f"nearly-black target pixels: {dark_pixels / total_pixels:.1%}")
-print(
-    "contribution to overall MSE from nearly-black targets:",
-    f"{dark_squared_error / total_pixels:.6f}",
-)
-print(
-    "contribution to overall MSE from other targets:",
-    f"{bright_squared_error / total_pixels:.6f}",
-)
+# Here the answer is no. Therefore this predictor has learned no representation
+# of the particular garment, regardless of its eventual score.
+#
+# <details>
+# <summary>Question: could you identify the input class from these reconstructions?</summary>
+#
+# No. Every input maps to the same output. The poster contains dataset-level
+# regularities—dark borders and a bright center—but no information about which
+# individual image was supplied.
+# </details>
 
 # %% [markdown]
-# The two contributions add to the overall mean-image MSE. Notice the
-# denominators: both are divided by **all** validation pixels, so they describe
-# how much each region contributes to the final average.
+# ## 6. Why the lazy artist can earn a respectable score
 #
-# A dark-background dataset gives an all-black predictor many easy correct
-# pixels. It still makes large errors on garment pixels, so the mean image can
-# improve substantially by predicting where garments tend to occur. Neither can
-# determine which garment is present.
+# Let us compare two input-ignoring predictors on every validation image:
+#
+# - **all black:** exploits the common background;
+# - **mean image:** also exploits where garments commonly appear.
 
 # %%
-mean_errors = constant_reconstruction_errors(
-    validation_loader, mean_image, device
-)
 black_image = torch.zeros_like(mean_image)
 black_errors = constant_reconstruction_errors(
     validation_loader, black_image, device
 )
+mean_errors = constant_reconstruction_errors(
+    validation_loader, mean_image, device
+)
 
-print(f"all-black validation MSE: {black_errors.mean():.6f}")
-print(f"mean-image validation MSE: {mean_errors.mean():.6f}")
+dark_pixels = 0
+total_pixels = 0
+for inputs, _labels in validation_loader:
+    dark_pixels += int((inputs <= 0.05).sum())
+    total_pixels += inputs.numel()
+
+print(f"nearly black validation pixels: {dark_pixels / total_pixels:.1%}")
+print(f"all-black validation MSE:       {float(black_errors.mean()):.4f}")
+print(f"mean-image validation MSE:      {float(mean_errors.mean()):.4f}")
 print(
-    "relative improvement over black:",
-    f"{(1 - mean_errors.mean() / black_errors.mean()) * 100:.1f}%",
+    "mean-image improvement:        "
+    f"{1 - float(mean_errors.mean() / black_errors.mean()):.1%}"
 )
 
 # %% [markdown]
-# The comparison gives each number meaning:
+# The black predictor earns many free successes because the canvas dominates the
+# image. The mean poster improves further by placing brightness where garments
+# usually occur.
 #
-# - All-black asks how far background sparsity alone can take us.
-# - Mean-image asks how well the best input-independent MSE predictor performs.
-# - A future autoencoder must improve on the mean-image reference using
-#   information from its input.
+# Neither predictor recognizes the input. They exploit the dataset's **common
+# layout**. That is exactly why a loss number needs a baseline: the dataset may
+# make part of the task easy before a model learns anything interesting.
+
+# %%
+comparison_target = class_images[0:1].expand(2, -1, -1, -1)
+comparison_predictions = torch.cat([black_image.cpu(), mean_image.cpu()])
+comparison_names = ("all black", "mean image")
+_ = plot_reconstruction_grid(
+    comparison_target,
+    comparison_predictions,
+    labels=torch.arange(len(comparison_names)),
+    class_names=comparison_names,
+    max_items=2,
+    include_error=True,
+)
+
+# %% [markdown]
+# Look at the error row. The mean image reduces error across common garment
+# regions, but it cannot place the particular edges and details of this input.
 #
 # <details>
-# <summary>Does beating the all-black baseline prove the model uses its input?</summary>
+# <summary>Question: if the mean image scores better, has it learned a better representation?</summary>
 #
-# No. The mean image beats black while remaining constant. Beating a weaker
-# baseline does not establish input dependence.
-# </details>
-#
-# <details>
-# <summary>Does beating the mean baseline prove a useful latent representation?</summary>
-#
-# Not by itself. It shows improved pixel prediction under the same evaluation
-# contract. We must also inspect whether reconstructions change with inputs,
-# whether meaningful structure is retained, and what the bottleneck encodes.
+# No. It is a better **constant guess**, not an input-dependent representation.
+# It summarizes the training dataset more effectively than black, but still
+# throws away all information about the current input.
 # </details>
 
 # %% [markdown]
-# ## Do not let the average hide the distribution
+# ## 7. One average score can hide many experiences
 #
-# One mean MSE conceals easy and hard examples. Examine the distribution and
-# class-conditioned errors before treating it as a complete description.
+# A class average at school can hide students who found the exam easy and others
+# who found it hard. A dataset-wide MSE does the same.
+#
+# We should inspect both the distribution of per-image errors and the average for
+# each garment class.
 
 # %%
 validation_labels = torch.cat(
-    [labels for _inputs, labels in validation_loader]
+    [labels.cpu() for _inputs, labels in validation_loader]
 )
-figure, axes = plt.subplots(1, 2, figsize=(12, 4))
-axes[0].hist(mean_errors.numpy(), bins=40)
-axes[0].axvline(float(mean_errors.mean()), color="red", linestyle="--")
+class_error_means = torch.stack(
+    [mean_errors[validation_labels == label].mean() for label in range(10)]
+)
+
+figure, axes = plt.subplots(1, 2, figsize=(11, 4))
+axes[0].hist(mean_errors.numpy(), bins=30, color="slateblue", alpha=0.85)
+axes[0].axvline(
+    float(mean_errors.mean()),
+    color="black",
+    linestyle="--",
+    label="overall mean",
+)
 axes[0].set(
-    title="Per-example mean-image error",
-    xlabel="MSE",
-    ylabel="Validation examples",
+    title="Some images are much harder than others",
+    xlabel="Per-image MSE",
+    ylabel="Number of validation images",
 )
-class_mse = [
-    float(mean_errors[validation_labels == label].mean())
-    for label in range(spec.num_classes)
-]
-axes[1].barh(names, class_mse)
+axes[0].legend()
+
+axes[1].bar(names, class_error_means.numpy(), color="darkorange")
 axes[1].set(
-    title="The same baseline is not equally good for every class",
-    xlabel="MSE",
+    title="The same poster fits some classes better",
+    ylabel="Mean-image MSE",
 )
+axes[1].tick_params(axis="x", rotation=70)
 figure.tight_layout()
 
 # %% [markdown]
-# The histogram asks whether the reported mean describes most examples or hides
-# a wide spread. The class bars ask which shapes resemble the dataset-wide
-# average most closely.
+# The mean image is closer to classes whose shapes overlap the dataset's central
+# ghost, and farther from classes with distinctive geometry. The overall mean
+# hides this variation.
 #
-# Keep observation and interpretation separate:
+# This habit will matter throughout the course:
 #
-# - **Observation:** classes have different average pixel MSE.
-# - **Interpretation:** the constant image happens to approximate some class
-#   silhouettes better; it has not learned those class concepts.
+# > Treat a scalar metric as a summary of evidence, not as the evidence itself.
 #
-# ## A boundary of MSE: location matters more than meaning
-#
-# MSE compares pixels at matching coordinates. Shift a recognizable garment by
-# one pixel and many formerly aligned pixels become errors, even though a human
-# still sees the same object.
-
-# %%
-original = class_images[0:1]
-shifted = functional.pad(
-    original[:, :, :, :-1],
-    (1, 0, 0, 0),
-)
-shifted_mse = (original - shifted).square().mean()
-
-_ = plot_reconstruction_grid(
-    original,
-    shifted,
-    max_items=1,
-    include_error=True,
-)
-print("MSE after a one-pixel horizontal shift:", float(shifted_mse))
+# Pair it with aligned images, error maps, distributions, and class-level views.
 
 # %% [markdown]
-# This does not make MSE wrong. It identifies the narrow question MSE answers:
+# ## 8. What this baseline is—and is not—for
 #
-# > How accurately did the prediction reproduce pixel intensities at the same
-# > locations?
+# Think of the mean baseline as the bar in a high-jump competition. Clearing it
+# matters, but clearing it does not prove Olympic ability.
 #
-# It does **not** directly answer whether two images depict the same semantic
-# object. That is why the course always pairs numeric reconstruction error with
-# aligned visual evidence.
+# | Tool | Useful because... | Misleading if... |
+# |---|---|---|
+# | **MSE** | it is simple, stable, and precisely measures matching-pixel fidelity | we treat it as a measure of semantic understanding or visual quality |
+# | **Mean-image baseline** | it is cheap, reproducible, and exposes how much score comes from dataset regularity | we mistake a good constant guess for an input-dependent model |
 #
-# ## Build the conclusion yourself
+# In practice, use the baseline to:
 #
-# Complete these sentences before opening the checks:
+# 1. compute a reference from the **training** split;
+# 2. evaluate it on validation data with the same preprocessing and MSE reduction
+#    as the model;
+# 3. require the model to beat it;
+# 4. also verify visually that different inputs produce appropriately different
+#    reconstructions.
 #
-# 1. The all-black baseline performs better than I might expect because …
-# 2. The mean image beats other constant images because …
-# 3. The mean-image MSE does not prove representation learning because …
-# 4. A trained autoencoder will provide stronger evidence if …
+# The baseline cannot recognize classes, preserve individual details, learn a
+# useful latent code, or generate diverse samples.
 #
 # <details>
-# <summary>Self-check</summary>
+# <summary>Question: an autoencoder reports validation MSE 0.05. Is that good?</summary>
 #
-# 1. Most Fashion-MNIST pixels are dark background.
-# 2. Squared error at each pixel is minimized by that pixel’s training mean.
-# 3. The same prediction is emitted for every input; no input information is
-#    encoded.
-# 4. It beats the baseline under identical loss semantics **and** produces
-#    visibly input-dependent reconstructions that retain meaningful structure.
+# The number alone is incomplete. Compare it with the all-black and mean-image
+# scores under exactly the same data range and averaging convention. Then inspect
+# whether reconstructions preserve input-specific shapes and whether outputs
+# change when inputs change. Beating the baseline is necessary evidence, but not
+# sufficient evidence of a useful representation.
 # </details>
 
 # %% [markdown]
-# ## What you should have learned
+# ## 9. The bridge to an autoencoder
 #
-# The number now has a reference:
+# The lazy baseline follows this rule:
 #
-# - An all-black predictor exploits background sparsity.
-# - The mean image is the MSE-optimal predictor among all constant images.
-# - Neither predictor contains an encoder or an input-dependent representation.
-# - A trained autoencoder must beat these baselines **and** visibly change its
-#   output with the input.
+# ```
+# any input  ───────────────> the same mean poster
+# ```
 #
-# ## Advancement gate
+# The autoencoder in Lesson 02 will follow:
 #
-# Use these as self-check questions. Reason through them, then expand the check:
+# ```
+# input  ──> encoder ──> compact code ──> decoder ──> tailored reconstruction
+# ```
 #
-# 1. Manually compute MSE for two two-pixel vectors.
-# 2. Derive why the mean minimizes constant-prediction squared error.
-# 3. Explain how Fashion-MNIST background helps the black baseline and why the
-#    per-pixel mean still improves on it.
-# 4. Explain why “validation MSE = 0.05” is incomplete without the dataset,
-#    pixel range, reduction convention, error distribution, and baseline.
-# 5. Name one numeric and one visual observation that would establish stronger
-#    input-dependent reconstruction evidence in Lesson 02.
+# A successful autoencoder should:
+#
+# - beat the mean-image validation MSE;
+# - change its reconstruction when the input changes;
+# - preserve recognizable, input-specific structure;
+# - fail in ways that make sense for its limited bottleneck.
+#
+# That comparison turns “the loss went down” into a meaningful claim.
+
+# %% [markdown]
+# ## Takeaway
+#
+# MSE is a **pixel-agreement score**. It is useful, but it is not an understanding
+# meter.
+#
+# Fashion-MNIST's shared black background and centered layout let a lazy,
+# input-ignoring predictor score surprisingly well. Under MSE, the best such
+# predictor is the mean training image: one blurred poster handed to every input.
+#
+# Therefore:
+#
+# > A reconstruction loss becomes meaningful only relative to what could be
+# > achieved without learning the input.
 #
 # <details>
-# <summary>Reveal the advancement check</summary>
+# <summary>Advancement gate: can you explain Lesson 01 without using a formula?</summary>
 #
-# 1. Subtract corresponding values, square each difference, and average them.
-# 2. For one pixel, setting the derivative of average squared loss to zero gives
-#    the empirical pixel mean; the full mean image applies this independently
-#    at every location.
-# 3. Dark background supplies many easy correct pixels to black. The mean image
-#    further predicts common object locations, reducing error while remaining
-#    input-independent.
-# 4. The number needs its dataset, pixel range, per-pixel mean reduction,
-#    distribution across examples/classes, and input-independent reference
-#    losses.
-# 5. Numeric: validation MSE below the mean-image baseline under identical loss
-#    semantics. Visual: aligned outputs change with their inputs and preserve
-#    recognizable input-specific structure.
+# A strong explanation includes these ideas:
+#
+# 1. MSE acts like a pixel accountant: it checks matching locations, not meaning.
+# 2. Fashion-MNIST contains many easy black-background pixels.
+# 3. The mean image is the best one-size-fits-all poster under squared error.
+# 4. Its nonterrible score comes from common layout, not input understanding.
+# 5. A real autoencoder must beat that score **and** produce reconstructions that
+#    visibly depend on the input.
+#
+# If those five statements feel natural, proceed to Lesson 02.
 # </details>
-#
-# If any answer feels vague, return to the probe that produced its evidence
-# rather than memorizing the summary.
