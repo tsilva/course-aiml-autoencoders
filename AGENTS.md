@@ -12,6 +12,11 @@
   evidence belongs in ignored `runs/`, not committed notebook cells.
 - Do not add blank answer fields to lessons. Present a concise question followed
   by a collapsed `<details>` block containing the expected reasoning.
+- Default to intuition-first teaching: introduce concepts through metaphors,
+  visible behavior, and incremental examples before formalism. The main lesson
+  path should establish what a model is, how it works, what it is for, how to
+  use it, and its strengths and limitations. Keep math purposeful and move
+  nonessential derivations into optional collapsed sections.
 - Every new model or objective needs shape, gradient, and tiny-overfit tests.
 - Every experiment changes one declared variable unless the report explicitly
   justifies a coupled change.
