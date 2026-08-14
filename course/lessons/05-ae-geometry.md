@@ -18,7 +18,7 @@ An ordinary AE optimizes only the first claim.
 Choose your best nonlinear AE from Lessons 03–04:
 
 ```bash
-uv run latent-lab inspect <AE_RUN_DIR>
+uv run course-aiml-autoencoders inspect <AE_RUN_DIR>
 ```
 
 Open these together:

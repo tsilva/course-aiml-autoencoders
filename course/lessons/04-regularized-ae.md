@@ -22,7 +22,7 @@ Predict whether denoising training will improve noisy-input output and whether
 it might slightly worsen clean-input reconstruction.
 
 ```bash
-uv run latent-lab study studies/ae/ae-004-denoising.yaml --seeds 0
+uv run course-aiml-autoencoders study studies/ae/ae-004-denoising.yaml --seeds 0
 ```
 
 Inspect:
@@ -46,7 +46,7 @@ Predict the curves for reconstruction MSE and mean absolute latent activation
 as $\lambda$ increases.
 
 ```bash
-uv run latent-lab study studies/ae/ae-005-sparsity.yaml --seeds 0
+uv run course-aiml-autoencoders study studies/ae/ae-005-sparsity.yaml --seeds 0
 ```
 
 Inspect named loss terms separately. Total loss cannot tell you whether a run

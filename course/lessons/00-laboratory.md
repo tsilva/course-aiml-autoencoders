@@ -13,8 +13,8 @@ time on real experiments.
 
 - `README.md`
 - `docs/EXPERIMENT_PROTOCOL.md`
-- `src/latent_lab/models/outputs.py`
-- `src/latent_lab/training/trainer.py`
+- `src/course_aiml_autoencoders/models/outputs.py`
+- `src/course_aiml_autoencoders/training/trainer.py`
 
 Answer before running: why does every model return a reconstruction, latent,
 and model-specific `extras` dictionary rather than making the trainer know each
@@ -25,9 +25,9 @@ architecture?
 ```bash
 uv sync --locked
 uv run pytest
-uv run latent-lab train recipes/smoke/fake-ae.yaml --device cpu
-uv run latent-lab train recipes/smoke/fake-vae.yaml --device cpu
-uv run latent-lab train recipes/smoke/fake-vqvae.yaml --device cpu
+uv run course-aiml-autoencoders train recipes/smoke/fake-ae.yaml --device cpu
+uv run course-aiml-autoencoders train recipes/smoke/fake-vae.yaml --device cpu
+uv run course-aiml-autoencoders train recipes/smoke/fake-vqvae.yaml --device cpu
 ```
 
 These use random synthetic images for one epoch. They are integration tests,
@@ -36,7 +36,7 @@ not learning results.
 Inspect one directory:
 
 ```bash
-uv run latent-lab inspect <PRINTED_RUN_DIR>
+uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
 ```
 
 ## Look for

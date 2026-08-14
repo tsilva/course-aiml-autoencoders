@@ -5,10 +5,10 @@ from pathlib import Path
 import nbformat
 import torch
 
-from latent_lab.config import load_yaml, validate_recipe, with_overrides
-from latent_lab.data.datasets import dataset_spec
-from latent_lab.models import build_model
-from latent_lab.objectives import build_objective
+from course_aiml_autoencoders.config import load_yaml, validate_recipe, with_overrides
+from course_aiml_autoencoders.data.datasets import dataset_spec
+from course_aiml_autoencoders.models import build_model
+from course_aiml_autoencoders.objectives import build_objective
 
 
 ROOT = Path(__file__).parents[1]
@@ -28,7 +28,7 @@ def test_course_manifest_points_to_existing_guides() -> None:
         assert notebook_path.is_file()
         notebook = nbformat.read(notebook_path, as_version=4)
         nbformat.validate(notebook)
-        assert notebook.metadata["latent_lab"]["source"] == str(
+        assert notebook.metadata["course_aiml_autoencoders"]["source"] == str(
             source.relative_to(ROOT)
         )
         assert all(

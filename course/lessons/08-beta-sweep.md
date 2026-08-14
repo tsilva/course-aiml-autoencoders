@@ -22,14 +22,14 @@ Before running, fill a table for beta values 0, 0.1, 1, and 4:
 ## Run the exploratory sweep
 
 ```bash
-uv run latent-lab study studies/vae/vae-001-beta-sweep.yaml --seeds 0
+uv run course-aiml-autoencoders study studies/vae/vae-001-beta-sweep.yaml --seeds 0
 ```
 
 The study prints one run directory per variant and an aggregate summary path.
 Inspect each run:
 
 ```bash
-uv run latent-lab inspect <RUN_DIR>
+uv run course-aiml-autoencoders inspect <RUN_DIR>
 ```
 
 ## Build the rate-distortion view

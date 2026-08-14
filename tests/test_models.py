@@ -1,8 +1,8 @@
 import torch
 
-from latent_lab.models.ae import Autoencoder
-from latent_lab.models.vae import VariationalAutoencoder
-from latent_lab.models.vqvae import VectorQuantizedAutoencoder
+from course_aiml_autoencoders.models.ae import Autoencoder
+from course_aiml_autoencoders.models.vae import VariationalAutoencoder
+from course_aiml_autoencoders.models.vqvae import VectorQuantizedAutoencoder
 
 
 def test_ae_preserves_image_shape() -> None:

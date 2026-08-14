@@ -5,7 +5,7 @@
 Run commands from the repository root:
 
 ```bash
-cd ~/repos/tsilva/sandbox-vae
+cd ~/repos/tsilva/course-aiml-autoencoders
 ```
 
 ## Fashion-MNIST download fails
@@ -18,7 +18,7 @@ first successful download.
 Force CPU for the affected command:
 
 ```bash
-uv run latent-lab train <RECIPE> --device cpu
+uv run course-aiml-autoencoders train <RECIPE> --device cpu
 ```
 
 Record the device change in the worksheet. Do not compare throughput across

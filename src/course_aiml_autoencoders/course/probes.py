@@ -10,9 +10,9 @@ import torch
 from matplotlib.figure import Figure
 from torch import Tensor, nn
 
-from latent_lab.config import load_yaml
-from latent_lab.data.datasets import dataset_spec
-from latent_lab.models import build_model
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.data.datasets import dataset_spec
+from course_aiml_autoencoders.models import build_model
 
 
 def repository_root(start: str | Path | None = None) -> Path:
@@ -25,7 +25,10 @@ def repository_root(start: str | Path | None = None) -> Path:
             and (candidate / "course" / "curriculum.yaml").is_file()
         ):
             return candidate
-    raise FileNotFoundError(f"Could not find the latent-lab root from {current}")
+    raise FileNotFoundError(
+        "Could not find the course-aiml-autoencoders root "
+        f"from {current}"
+    )
 
 
 @torch.no_grad()

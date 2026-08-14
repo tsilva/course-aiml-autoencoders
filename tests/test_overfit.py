@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as functional
 
-from latent_lab.models.ae import Autoencoder
+from course_aiml_autoencoders.models.ae import Autoencoder
 
 
 def test_autoencoder_reduces_tiny_batch_loss() -> None:

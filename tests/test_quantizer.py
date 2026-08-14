@@ -1,6 +1,6 @@
 import torch
 
-from latent_lab.models.quantizer import VectorQuantizer
+from course_aiml_autoencoders.models.quantizer import VectorQuantizer
 
 
 def test_quantizer_selects_nearest_code() -> None:

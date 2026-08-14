@@ -32,11 +32,11 @@
 import matplotlib.pyplot as plt
 import torch
 
-from latent_lab.config import load_yaml
-from latent_lab.course import balanced_class_batch, repository_root
-from latent_lab.data import build_dataloaders, class_names
-from latent_lab.diagnostics import plot_image_grid, plot_reconstruction_grid
-from latent_lab.training import (
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.course import balanced_class_batch, repository_root
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import plot_image_grid, plot_reconstruction_grid
+from course_aiml_autoencoders.training import (
     compute_mean_image,
     constant_reconstruction_errors,
 )

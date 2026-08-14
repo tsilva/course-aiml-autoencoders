@@ -34,8 +34,8 @@ The learned prior should answer:
 
 ## Read the prior
 
-- `src/latent_lab/models/prior.py`
-- `src/latent_lab/training/prior_trainer.py`
+- `src/course_aiml_autoencoders/models/prior.py`
+- `src/course_aiml_autoencoders/training/prior_trainer.py`
 
 The small GRU prior uses teacher forcing during training. Its input at position
 $i$ is the true previous token; its target is the current token. At sampling
@@ -54,11 +54,11 @@ time it must consume its own sampled history.
 Use the exact best VQ checkpoint:
 
 ```bash
-uv run latent-lab train-prior \
+uv run course-aiml-autoencoders train-prior \
   recipes/prior/prior-001-gru.yaml \
   <VQ_RUN_DIR>/checkpoint-best.pt
 
-uv run latent-lab inspect <PRINTED_PRIOR_RUN_DIR>
+uv run course-aiml-autoencoders inspect <PRINTED_PRIOR_RUN_DIR>
 ```
 
 Token extraction uses the frozen VQ-VAE. Only the prior is trained.

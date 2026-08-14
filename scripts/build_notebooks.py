@@ -36,7 +36,7 @@ def render_notebook(source_path: Path) -> str:
             "name": "python",
             "version": "3.11",
         },
-        "latent_lab": {
+        "course_aiml_autoencoders": {
             "generated": True,
             "source": str(source_path.relative_to(ROOT)),
         },

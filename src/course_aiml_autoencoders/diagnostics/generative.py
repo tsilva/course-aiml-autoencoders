@@ -9,8 +9,8 @@ import torch
 from torch import Tensor, nn
 from torchvision.utils import make_grid
 
-from latent_lab.diagnostics.codebook import code_usage
-from latent_lab.diagnostics.interpolations import linear_interpolation
+from course_aiml_autoencoders.diagnostics.codebook import code_usage
+from course_aiml_autoencoders.diagnostics.interpolations import linear_interpolation
 
 
 def save_image_grid(

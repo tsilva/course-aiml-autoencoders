@@ -1,4 +1,4 @@
-from latent_lab.config import with_overrides
+from course_aiml_autoencoders.config import with_overrides
 
 
 def test_dotted_overrides_do_not_mutate_baseline() -> None:

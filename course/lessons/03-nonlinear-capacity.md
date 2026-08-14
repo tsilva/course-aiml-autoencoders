@@ -17,7 +17,7 @@ lower validation MSE. Also predict whether the comparison is perfectly fair:
 the nonlinear model has many more parameters.
 
 ```bash
-uv run latent-lab study studies/ae/ae-002-nonlinearity.yaml --seeds 0
+uv run course-aiml-autoencoders study studies/ae/ae-002-nonlinearity.yaml --seeds 0
 ```
 
 Open the printed study summary and both run directories. Compare:
@@ -36,7 +36,7 @@ Before running, sketch expected validation MSE against latent sizes
 2, 8, 32, and 128.
 
 ```bash
-uv run latent-lab study studies/ae/ae-003-latent-capacity.yaml --seeds 0
+uv run course-aiml-autoencoders study studies/ae/ae-003-latent-capacity.yaml --seeds 0
 ```
 
 Look for diminishing returns rather than assuming every additional latent
@@ -56,7 +56,7 @@ latent is already two-dimensional, the scatter plot is not a PCA projection.
 After choosing the two most scientifically interesting variants:
 
 ```bash
-uv run latent-lab study studies/ae/ae-002-nonlinearity.yaml --seeds 0 1 2
+uv run course-aiml-autoencoders study studies/ae/ae-002-nonlinearity.yaml --seeds 0 1 2
 ```
 
 Do not repeat every variant automatically. Confirm the comparison that would

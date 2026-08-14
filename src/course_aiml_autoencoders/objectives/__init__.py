@@ -4,10 +4,10 @@ from typing import Any, Callable
 
 from torch import Tensor
 
-from latent_lab.models.outputs import LatentModelOutput
-from latent_lab.objectives.ae import autoencoder_objective
-from latent_lab.objectives.vae import variational_objective
-from latent_lab.objectives.vqvae import vector_quantized_objective
+from course_aiml_autoencoders.models.outputs import LatentModelOutput
+from course_aiml_autoencoders.objectives.ae import autoencoder_objective
+from course_aiml_autoencoders.objectives.vae import variational_objective
+from course_aiml_autoencoders.objectives.vqvae import vector_quantized_objective
 
 Objective = Callable[[LatentModelOutput, Tensor], dict[str, Tensor]]
 

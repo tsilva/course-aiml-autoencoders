@@ -34,15 +34,15 @@ import math
 
 from IPython.display import Image, display
 
-from latent_lab.config import load_yaml
-from latent_lab.course import (
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.course import (
     latest_run_dir,
     load_metrics,
     load_run_summary,
     plot_metric_history,
     repository_root,
 )
-from latent_lab.training import run_code_prior_training
+from course_aiml_autoencoders.training import run_code_prior_training
 
 ROOT = repository_root()
 vq_run_dir = latest_run_dir(ROOT / "runs", "vqvae/vqvae-001-basic")

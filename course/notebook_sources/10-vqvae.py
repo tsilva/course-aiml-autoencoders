@@ -30,17 +30,17 @@
 import matplotlib.pyplot as plt
 import torch
 
-from latent_lab.config import load_yaml
-from latent_lab.course import (
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.course import (
     balanced_class_batch,
     load_run_summary,
     load_trained_model,
     repository_root,
 )
-from latent_lab.data import build_dataloaders, class_names
-from latent_lab.diagnostics import plot_image_grid, plot_reconstruction_grid
-from latent_lab.models.quantizer import VectorQuantizer
-from latent_lab.training import run_training
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import plot_image_grid, plot_reconstruction_grid
+from course_aiml_autoencoders.models.quantizer import VectorQuantizer
+from course_aiml_autoencoders.training import run_training
 
 ROOT = repository_root()
 

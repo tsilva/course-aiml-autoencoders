@@ -4,10 +4,10 @@ from typing import Any
 
 from torch import nn
 
-from latent_lab.data.datasets import DatasetSpec
-from latent_lab.models.ae import Autoencoder
-from latent_lab.models.vae import VariationalAutoencoder
-from latent_lab.models.vqvae import VectorQuantizedAutoencoder
+from course_aiml_autoencoders.data.datasets import DatasetSpec
+from course_aiml_autoencoders.models.ae import Autoencoder
+from course_aiml_autoencoders.models.vae import VariationalAutoencoder
+from course_aiml_autoencoders.models.vqvae import VectorQuantizedAutoencoder
 
 
 def build_model(config: dict[str, Any], dataset: DatasetSpec) -> nn.Module:

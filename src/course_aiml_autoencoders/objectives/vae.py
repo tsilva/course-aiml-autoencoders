@@ -3,8 +3,8 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
-from latent_lab.models.outputs import LatentModelOutput
-from latent_lab.objectives.reconstruction import reconstruction_loss
+from course_aiml_autoencoders.models.outputs import LatentModelOutput
+from course_aiml_autoencoders.objectives.reconstruction import reconstruction_loss
 
 
 def kl_divergence_per_dimension(mu: Tensor, logvar: Tensor) -> Tensor:
