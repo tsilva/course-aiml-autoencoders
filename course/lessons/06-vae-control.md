@@ -26,8 +26,8 @@ $$
 
 Read:
 
-- `src/latent_lab/models/vae.py`
-- `src/latent_lab/objectives/vae.py`
+- `src/course_aiml_autoencoders/models/vae.py`
+- `src/course_aiml_autoencoders/objectives/vae.py`
 - `recipes/vae/vae-000-kl-off.yaml`
 
 Trace gradients symbolically from reconstruction loss through $z$ to both
@@ -56,8 +56,8 @@ Predict:
 ## Run
 
 ```bash
-uv run latent-lab train recipes/vae/vae-000-kl-off.yaml
-uv run latent-lab inspect <PRINTED_RUN_DIR>
+uv run course-aiml-autoencoders train recipes/vae/vae-000-kl-off.yaml
+uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
 ```
 
 ## Inspect

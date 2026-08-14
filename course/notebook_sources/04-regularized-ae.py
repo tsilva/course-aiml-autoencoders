@@ -30,11 +30,11 @@ import matplotlib.pyplot as plt
 import torch
 from IPython.display import Image, display
 
-from latent_lab.config import load_yaml
-from latent_lab.course import balanced_class_batch, repository_root
-from latent_lab.data import build_dataloaders, class_names
-from latent_lab.diagnostics import plot_image_grid
-from latent_lab.training import corrupt_inputs
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.course import balanced_class_batch, repository_root
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import plot_image_grid
+from course_aiml_autoencoders.training import corrupt_inputs
 
 ROOT = repository_root()
 denoising_recipe = load_yaml(ROOT / "recipes/ae/ae-003-denoising.yaml")
@@ -90,7 +90,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "latent_lab.cli",
+        "course_aiml_autoencoders.cli",
         "study",
         str(ROOT / "studies/ae/ae-004-denoising.yaml"),
         "--seeds",
@@ -144,7 +144,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "latent_lab.cli",
+        "course_aiml_autoencoders.cli",
         "study",
         str(ROOT / "studies/ae/ae-005-sparsity.yaml"),
         "--seeds",

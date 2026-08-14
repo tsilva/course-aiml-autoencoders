@@ -1,6 +1,6 @@
 """Notebook-facing helpers for inspecting experiments without duplicating logic."""
 
-from latent_lab.course.probes import (
+from course_aiml_autoencoders.course.probes import (
     balanced_class_batch,
     latest_run_dir,
     load_metrics,

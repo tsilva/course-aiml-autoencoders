@@ -10,18 +10,18 @@ from typing import Any
 
 import torch
 
-from latent_lab.config import save_yaml, validate_recipe
-from latent_lab.data import build_dataloaders, class_names
-from latent_lab.diagnostics import (
+from course_aiml_autoencoders.config import save_yaml, validate_recipe
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import (
     generate_generative_diagnostics,
     save_reconstruction_grid,
 )
-from latent_lab.models import build_model
-from latent_lab.objectives import build_objective
-from latent_lab.tracking import LocalTracker
-from latent_lab.training.checkpointing import save_checkpoint
-from latent_lab.training.evaluator import evaluate_epoch
-from latent_lab.training.seeding import resolve_device, seed_everything
+from course_aiml_autoencoders.models import build_model
+from course_aiml_autoencoders.objectives import build_objective
+from course_aiml_autoencoders.tracking import LocalTracker
+from course_aiml_autoencoders.training.checkpointing import save_checkpoint
+from course_aiml_autoencoders.training.evaluator import evaluate_epoch
+from course_aiml_autoencoders.training.seeding import resolve_device, seed_everything
 
 
 @dataclass(frozen=True)

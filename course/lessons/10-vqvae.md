@@ -28,9 +28,9 @@ where `sg` means stop-gradient.
 
 Read:
 
-- `src/latent_lab/models/quantizer.py`
-- `src/latent_lab/models/vqvae.py`
-- `src/latent_lab/objectives/vqvae.py`
+- `src/course_aiml_autoencoders/models/quantizer.py`
+- `src/course_aiml_autoencoders/models/vqvae.py`
+- `src/course_aiml_autoencoders/objectives/vqvae.py`
 
 Before running, identify:
 
@@ -45,8 +45,8 @@ but gives it the encoder latent's gradient in the backward pass.
 ## Run
 
 ```bash
-uv run latent-lab train recipes/vqvae/vqvae-001-basic.yaml
-uv run latent-lab inspect <PRINTED_RUN_DIR>
+uv run course-aiml-autoencoders train recipes/vqvae/vqvae-001-basic.yaml
+uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
 ```
 
 ## Inspect

@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as functional
 
-from latent_lab.models.prior import AutoregressiveCodePrior
+from course_aiml_autoencoders.models.prior import AutoregressiveCodePrior
 
 
 def test_code_prior_logits_and_gradients() -> None:

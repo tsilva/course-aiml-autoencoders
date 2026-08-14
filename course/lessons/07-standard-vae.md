@@ -33,8 +33,8 @@ State the causal mechanism, not only the direction.
 ## Run
 
 ```bash
-uv run latent-lab train recipes/vae/vae-001-basic.yaml
-uv run latent-lab inspect <PRINTED_RUN_DIR>
+uv run course-aiml-autoencoders train recipes/vae/vae-001-basic.yaml
+uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
 ```
 
 ## Read the metrics correctly

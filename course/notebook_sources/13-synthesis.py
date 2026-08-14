@@ -23,7 +23,7 @@
 # %%
 from IPython.display import Image, display
 
-from latent_lab.course import (
+from course_aiml_autoencoders.course import (
     latest_run_dir,
     load_run_summary,
     repository_root,

@@ -7,6 +7,8 @@ __pycache__/
 .DS_Store
 
 data/
+!src/course_aiml_autoencoders/data/
+!src/course_aiml_autoencoders/data/*.py
 runs/
 wandb/
 *.pt

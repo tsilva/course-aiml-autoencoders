@@ -3,8 +3,8 @@ from __future__ import annotations
 import torch
 from torch import Tensor, nn
 
-from latent_lab.models.components import flattened_size, mlp, output_activation
-from latent_lab.models.outputs import LatentModelOutput
+from course_aiml_autoencoders.models.components import flattened_size, mlp, output_activation
+from course_aiml_autoencoders.models.outputs import LatentModelOutput
 
 
 class Autoencoder(nn.Module):

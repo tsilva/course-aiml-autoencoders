@@ -11,12 +11,12 @@ import torch
 import torch.nn.functional as functional
 from torch.utils.data import DataLoader, TensorDataset
 
-from latent_lab.config import save_yaml
-from latent_lab.data import build_dataloaders
-from latent_lab.diagnostics import save_image_grid
-from latent_lab.models import build_model
-from latent_lab.models.prior import AutoregressiveCodePrior
-from latent_lab.training.seeding import resolve_device, seed_everything
+from course_aiml_autoencoders.config import save_yaml
+from course_aiml_autoencoders.data import build_dataloaders
+from course_aiml_autoencoders.diagnostics import save_image_grid
+from course_aiml_autoencoders.models import build_model
+from course_aiml_autoencoders.models.prior import AutoregressiveCodePrior
+from course_aiml_autoencoders.training.seeding import resolve_device, seed_everything
 
 
 @dataclass(frozen=True)

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from torch import Tensor, nn
 
-from latent_lab.models.outputs import LatentModelOutput
-from latent_lab.models.quantizer import VectorQuantizer
+from course_aiml_autoencoders.models.outputs import LatentModelOutput
+from course_aiml_autoencoders.models.quantizer import VectorQuantizer
 
 
 class VectorQuantizedAutoencoder(nn.Module):

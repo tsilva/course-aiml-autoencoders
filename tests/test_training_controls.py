@@ -1,6 +1,6 @@
 import torch
 
-from latent_lab.training.trainer import _effective_beta, corrupt_inputs
+from course_aiml_autoencoders.training.trainer import _effective_beta, corrupt_inputs
 
 
 def test_gaussian_corruption_preserves_shape_and_range() -> None:

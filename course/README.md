@@ -32,8 +32,8 @@ form.
 List the curriculum at any time:
 
 ```bash
-uv run latent-lab course
-uv run latent-lab course 00
+uv run course-aiml-autoencoders course
+uv run course-aiml-autoencoders course 00
 ```
 
 The lesson command prints three paths:
@@ -100,7 +100,7 @@ uv run python scripts/execute_notebooks.py --lessons 06 07
 
 Executed copies are written beneath ignored `runs/notebook-executions/`.
 
-Reusable computation belongs in `src/latent_lab`. Notebook cells may configure
+Reusable computation belongs in `src/course_aiml_autoencoders`. Notebook cells may configure
 experiments, call the trainer, and interrogate returned tensors, but must not
 define alternative models, objectives, or training loops.
 
@@ -153,7 +153,7 @@ runs/<recipe>/<timestamp>-seed-<seed>/
 Use:
 
 ```bash
-uv run latent-lab inspect <RUN_DIR>
+uv run course-aiml-autoencoders inspect <RUN_DIR>
 ```
 
 The inspection command prints the best metrics, model-specific summary, final

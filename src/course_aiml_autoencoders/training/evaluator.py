@@ -6,7 +6,7 @@ from collections.abc import Iterable
 import torch
 from torch import Tensor, nn
 
-from latent_lab.objectives import Objective
+from course_aiml_autoencoders.objectives import Objective
 
 
 @torch.no_grad()

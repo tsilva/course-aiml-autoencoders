@@ -45,7 +45,7 @@ Predict which method will retain the most active dimensions and which may have
 the best reconstruction.
 
 ```bash
-uv run latent-lab study studies/vae/vae-002-collapse-remedies.yaml --seeds 0
+uv run course-aiml-autoencoders study studies/vae/vae-002-collapse-remedies.yaml --seeds 0
 ```
 
 Inspect:

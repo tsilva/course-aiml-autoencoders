@@ -28,8 +28,8 @@ import sys
 
 import matplotlib.pyplot as plt
 
-from latent_lab.config import load_yaml
-from latent_lab.course import repository_root
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.course import repository_root
 
 ROOT = repository_root()
 size_path = ROOT / "studies/vqvae/vqvae-001-codebook-size.yaml"
@@ -55,7 +55,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "latent_lab.cli",
+        "course_aiml_autoencoders.cli",
         "study",
         str(size_path),
         "--seeds",
@@ -138,7 +138,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "latent_lab.cli",
+        "course_aiml_autoencoders.cli",
         "study",
         str(commitment_path),
         "--seeds",

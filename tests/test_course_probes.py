@@ -5,17 +5,17 @@ import pytest
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from latent_lab.course import (
+from course_aiml_autoencoders.course import (
     balanced_class_batch,
     latest_run_dir,
     plot_metric_history,
 )
-from latent_lab.diagnostics import (
+from course_aiml_autoencoders.diagnostics import (
     per_example_mse,
     plot_image_grid,
     plot_reconstruction_grid,
 )
-from latent_lab.training import (
+from course_aiml_autoencoders.training import (
     compute_mean_image,
     constant_reconstruction_errors,
 )

@@ -14,7 +14,7 @@ Predict reconstruction error, codes used, dead-code count, and perplexity for
 codebook sizes 8, 32, 128, and 512.
 
 ```bash
-uv run latent-lab study studies/vqvae/vqvae-001-codebook-size.yaml --seeds 0
+uv run course-aiml-autoencoders study studies/vqvae/vqvae-001-codebook-size.yaml --seeds 0
 ```
 
 Inspect each `diagnostics.json` and `codebook-usage.png`.
@@ -36,7 +36,7 @@ codebook size.
 The commitment term keeps encoder outputs near the selected embeddings.
 
 ```bash
-uv run latent-lab study studies/vqvae/vqvae-002-commitment.yaml --seeds 0
+uv run course-aiml-autoencoders study studies/vqvae/vqvae-002-commitment.yaml --seeds 0
 ```
 
 Compare:

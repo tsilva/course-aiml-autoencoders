@@ -1,8 +1,9 @@
-# Latent Lab
+# Autoencoders: From Bottlenecks to Discrete Latents
 
-Latent Lab is a small, inspectable experiment repository for learning
-autoencoders, variational autoencoders, and vector-quantized autoencoders by
-running controlled experiments.
+This repository contains our experiment-first course on autoencoders,
+variational autoencoders, and vector-quantized autoencoders. It pairs concise,
+intuition-first lessons with inspectable implementations and controlled
+experiments so learners can connect model behavior to evidence.
 
 The step-by-step executable course starts at
 [course/README.md](course/README.md). Its canonical lessons are agent-editable
@@ -12,8 +13,8 @@ Jupyter and GitHub readers.
 List lessons from the terminal with:
 
 ```bash
-uv run latent-lab course
-uv run latent-lab course 00
+uv run course-aiml-autoencoders course
+uv run course-aiml-autoencoders course 00
 ```
 
 The progression is deliberate:
@@ -29,12 +30,12 @@ uv sync --locked
 uv run pytest
 uv run python scripts/build_notebooks.py --check
 uv run jupyter lab course/notebooks/01-mean-baseline.ipynb
-uv run latent-lab train recipes/smoke/fake-ae.yaml
-uv run latent-lab train recipes/smoke/fake-vae.yaml
-uv run latent-lab train recipes/smoke/fake-vqvae.yaml
-uv run latent-lab course
-uv run latent-lab train recipes/ae/ae-001-linear.yaml
-uv run latent-lab study studies/ae/ae-003-latent-capacity.yaml
+uv run course-aiml-autoencoders train recipes/smoke/fake-ae.yaml
+uv run course-aiml-autoencoders train recipes/smoke/fake-vae.yaml
+uv run course-aiml-autoencoders train recipes/smoke/fake-vqvae.yaml
+uv run course-aiml-autoencoders course
+uv run course-aiml-autoencoders train recipes/ae/ae-001-linear.yaml
+uv run course-aiml-autoencoders study studies/ae/ae-003-latent-capacity.yaml
 ```
 
 Fashion-MNIST is downloaded into `data/` on first use. Generated runs,
@@ -42,7 +43,7 @@ checkpoints, and raw figures are stored in `runs/` and ignored by Git.
 
 ## Repository contract
 
-- `src/latent_lab/` contains reusable implementation code.
+- `src/course_aiml_autoencoders/` contains reusable implementation code.
 - `recipes/` contains complete executable configurations.
 - `studies/` contains questions, hypotheses, controlled variants, and required
   evidence.

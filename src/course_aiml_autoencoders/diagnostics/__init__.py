@@ -1,8 +1,8 @@
-from latent_lab.diagnostics.generative import (
+from course_aiml_autoencoders.diagnostics.generative import (
     generate_generative_diagnostics,
     save_image_grid,
 )
-from latent_lab.diagnostics.reconstructions import (
+from course_aiml_autoencoders.diagnostics.reconstructions import (
     per_example_mse,
     plot_image_grid,
     plot_reconstruction_grid,

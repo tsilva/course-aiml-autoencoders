@@ -24,7 +24,7 @@ Every lesson must preserve the learning loop:
 9. End with a collapsed advancement gate and expected reasoning.
 
 Keep reusable model, objective, training, and plotting logic in
-`src/latent_lab`.
+`src/course_aiml_autoencoders`.
 
 Do not add blank “Your answer” or “Prediction” fields. Put the expected
 reasoning in a collapsed `<details>` block directly beneath the question.

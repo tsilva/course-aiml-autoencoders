@@ -22,8 +22,8 @@ the output activation is explicitly `none`.
 Read:
 
 - `recipes/ae/ae-001-linear.yaml`
-- `src/latent_lab/models/ae.py`
-- `src/latent_lab/objectives/ae.py`
+- `src/course_aiml_autoencoders/models/ae.py`
+- `src/course_aiml_autoencoders/objectives/ae.py`
 
 Predict:
 
@@ -35,8 +35,8 @@ Predict:
 ## Run
 
 ```bash
-uv run latent-lab train recipes/ae/ae-001-linear.yaml
-uv run latent-lab inspect <PRINTED_RUN_DIR>
+uv run course-aiml-autoencoders train recipes/ae/ae-001-linear.yaml
+uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
 ```
 
 ## Inspect in this order

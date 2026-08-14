@@ -33,8 +33,8 @@ Write down:
 ## Run
 
 ```bash
-uv run latent-lab baseline recipes/ae/ae-001-linear.yaml
-uv run latent-lab inspect <PRINTED_RUN_DIR>
+uv run course-aiml-autoencoders baseline recipes/ae/ae-001-linear.yaml
+uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
 ```
 
 ## Inspect

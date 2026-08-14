@@ -1,7 +1,7 @@
 import torch
 
-from latent_lab.models.vae import reparameterize
-from latent_lab.objectives.vae import kl_divergence
+from course_aiml_autoencoders.models.vae import reparameterize
+from course_aiml_autoencoders.objectives.vae import kl_divergence
 
 
 def test_standard_normal_has_zero_kl() -> None:

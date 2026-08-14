@@ -3,9 +3,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "latent-lab"
+name = "course-aiml-autoencoders"
 version = "0.1.0"
-description = "A literate experiment lab for learning AE, VAE, and VQ-VAE models from scratch."
+description = "An experiment-first course on autoencoders, VAEs, and VQ-VAEs."
+authors = [{ name = "Tiago Silva" }]
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
@@ -16,7 +17,10 @@ dependencies = [
 ]
 
 [project.scripts]
-latent-lab = "latent_lab.cli:main"
+course-aiml-autoencoders = "course_aiml_autoencoders.cli:main"
+
+[project.urls]
+Repository = "https://github.com/tsilva/course-aiml-autoencoders"
 
 [dependency-groups]
 dev = [
@@ -29,7 +33,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/latent_lab"]
+packages = ["src/course_aiml_autoencoders"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

@@ -53,7 +53,7 @@ For any conclusion that depends on a small numerical difference, rerun the two
 relevant variants:
 
 ```bash
-uv run latent-lab study <STUDY_FILE> --seeds 0 1 2
+uv run course-aiml-autoencoders study <STUDY_FILE> --seeds 0 1 2
 ```
 
 Report the mean, variation, qualitative consistency, and any seed-specific

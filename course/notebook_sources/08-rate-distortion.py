@@ -28,8 +28,8 @@ import sys
 import matplotlib.pyplot as plt
 from IPython.display import Image, display
 
-from latent_lab.config import load_yaml
-from latent_lab.course import repository_root
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.course import repository_root
 
 ROOT = repository_root()
 study_path = ROOT / "studies/vae/vae-001-beta-sweep.yaml"
@@ -69,7 +69,7 @@ subprocess.run(
     [
         sys.executable,
         "-m",
-        "latent_lab.cli",
+        "course_aiml_autoencoders.cli",
         "study",
         str(study_path),
         "--seeds",

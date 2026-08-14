@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from torch import Tensor
 
-from latent_lab.models.outputs import LatentModelOutput
-from latent_lab.objectives.reconstruction import reconstruction_loss
+from course_aiml_autoencoders.models.outputs import LatentModelOutput
+from course_aiml_autoencoders.objectives.reconstruction import reconstruction_loss
 
 
 def vector_quantized_objective(

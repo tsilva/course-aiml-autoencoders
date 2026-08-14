@@ -8,10 +8,10 @@ from typing import Any
 
 import torch
 
-from latent_lab.config import save_yaml, validate_recipe
-from latent_lab.data import build_dataloaders, class_names
-from latent_lab.diagnostics import per_example_mse, save_reconstruction_grid
-from latent_lab.training.seeding import resolve_device, seed_everything
+from course_aiml_autoencoders.config import save_yaml, validate_recipe
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import per_example_mse, save_reconstruction_grid
+from course_aiml_autoencoders.training.seeding import resolve_device, seed_everything
 
 
 @dataclass(frozen=True)

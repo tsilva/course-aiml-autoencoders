@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from latent_lab.config import load_yaml, with_overrides
-from latent_lab.training import (
+from course_aiml_autoencoders.config import load_yaml, with_overrides
+from course_aiml_autoencoders.training import (
     run_code_prior_training,
     run_mean_image_baseline,
     run_training,
@@ -169,7 +169,9 @@ def _find_course_manifest() -> Path:
         candidate = root / "course" / "curriculum.yaml"
         if candidate.exists():
             return candidate
-    raise SystemExit("Run this command from inside the latent-lab repository.")
+    raise SystemExit(
+        "Run this command from inside the course-aiml-autoencoders repository."
+    )
 
 
 def _course(args: argparse.Namespace) -> None:
@@ -182,7 +184,7 @@ def _course(args: argparse.Namespace) -> None:
                 f"{lesson['id']:>2}  {lesson['title']} "
                 f"({lesson['estimated_minutes']} min)"
             )
-        print("\nUse `uv run latent-lab course <id>` to open a lesson.")
+        print("\nUse `uv run course-aiml-autoencoders course <id>` to open a lesson.")
         return
 
     lesson = next(
@@ -209,8 +211,8 @@ def _course(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="latent-lab",
-        description="Run inspectable latent-model experiments.",
+        prog="course-aiml-autoencoders",
+        description="Explore the Autoencoders course and run its experiments.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

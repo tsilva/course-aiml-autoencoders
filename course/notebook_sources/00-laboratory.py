@@ -30,11 +30,11 @@ from pathlib import Path
 
 import torch
 
-from latent_lab.config import load_yaml
-from latent_lab.course import repository_root
-from latent_lab.data.datasets import dataset_spec
-from latent_lab.models import build_model
-from latent_lab.objectives import build_objective
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.course import repository_root
+from course_aiml_autoencoders.data.datasets import dataset_spec
+from course_aiml_autoencoders.models import build_model
+from course_aiml_autoencoders.objectives import build_objective
 
 ROOT = repository_root()
 torch.manual_seed(0)
@@ -124,9 +124,9 @@ print("Shape and gradient contracts passed.")
 # Then run the smoke recipes if you want to inspect the durable run contract:
 #
 # ```bash
-# uv run latent-lab train recipes/smoke/fake-ae.yaml --device cpu
-# uv run latent-lab train recipes/smoke/fake-vae.yaml --device cpu
-# uv run latent-lab train recipes/smoke/fake-vqvae.yaml --device cpu
+# uv run course-aiml-autoencoders train recipes/smoke/fake-ae.yaml --device cpu
+# uv run course-aiml-autoencoders train recipes/smoke/fake-vae.yaml --device cpu
+# uv run course-aiml-autoencoders train recipes/smoke/fake-vqvae.yaml --device cpu
 # ```
 #
 # ## Advancement gate
@@ -136,4 +136,4 @@ print("Shape and gradient contracts passed.")
 # 1. What a recipe controls.
 # 2. Why a smoke test is weaker than a learning result.
 # 3. Why total losses from different model families need not be comparable.
-# 4. Why reusable model and training logic belongs in `src/latent_lab`, not here.
+# 4. Why reusable model and training logic belongs in `src/course_aiml_autoencoders`, not here.

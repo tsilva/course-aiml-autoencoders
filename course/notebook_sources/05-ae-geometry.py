@@ -29,15 +29,15 @@
 import matplotlib.pyplot as plt
 import torch
 
-from latent_lab.course import (
+from course_aiml_autoencoders.course import (
     balanced_class_batch,
     latest_run_dir,
     load_trained_model,
     repository_root,
 )
-from latent_lab.data import build_dataloaders, class_names
-from latent_lab.diagnostics import plot_image_grid, plot_reconstruction_grid
-from latent_lab.diagnostics.interpolations import linear_interpolation
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import plot_image_grid, plot_reconstruction_grid
+from course_aiml_autoencoders.diagnostics.interpolations import linear_interpolation
 
 ROOT = repository_root()
 run_dir = latest_run_dir(

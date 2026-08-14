@@ -36,28 +36,28 @@ import math
 import matplotlib.pyplot as plt
 import torch
 
-from latent_lab.config import load_yaml
-from latent_lab.course import (
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.course import (
     balanced_class_batch,
     load_metrics,
     load_trained_model,
     plot_metric_history,
     repository_root,
 )
-from latent_lab.data import build_dataloaders, class_names
-from latent_lab.diagnostics import (
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import (
     per_example_mse,
     plot_image_grid,
     plot_reconstruction_grid,
 )
-from latent_lab.diagnostics.interpolations import linear_interpolation
-from latent_lab.models import build_model
-from latent_lab.training import (
+from course_aiml_autoencoders.diagnostics.interpolations import linear_interpolation
+from course_aiml_autoencoders.models import build_model
+from course_aiml_autoencoders.training import (
     compute_mean_image,
     constant_reconstruction_errors,
     run_training,
 )
-from latent_lab.training.seeding import resolve_device
+from course_aiml_autoencoders.training.seeding import resolve_device
 
 ROOT = repository_root()
 recipe_path = ROOT / "recipes/ae/ae-001-linear.yaml"
