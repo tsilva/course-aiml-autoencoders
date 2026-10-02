@@ -1,0 +1,4 @@
+interface:
+  display_name: "Validate course in Colab"
+  short_description: "Run one or all course notebooks and review results"
+  default_prompt: "Use $validate-colab-notebooks to verify all course notebooks in Google Colab."
