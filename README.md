@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./logo.png" alt="Autoencoders: From Bottlenecks to Discrete Latents" width="760" />
+  <img src="./logo.png" alt="AI/ML Course: Autoencoders" width="480" />
 
   **🧪 Learn autoencoders by predicting, running, and inspecting experiments. 🧪**
 </div>
