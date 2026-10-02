@@ -1,77 +1,49 @@
-# Lesson 11 — Codebook capacity, utilization, and commitment
+# Lesson 11 — Count the symbols actually used
 
-> Interactive lab: [open the generated notebook](../notebooks/11-codebook.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/11-codebook.py).
+**Learning objective:** distinguish vocabulary size, coverage, and balanced usage.
 
-## Learning objective
+A dictionary with 128 words is not a 128-word conversation if almost every
+sentence repeats one word. Codebook size counts available symbols; codes used
+counts observed symbols; perplexity summarizes how evenly they are used.
+Inspect the run from Lesson 10 before spending time training larger codebooks.
 
-Treat the codebook as a learned communication channel rather than assuming
-that a larger vocabulary automatically creates a richer representation.
+[Open the notebook](../notebooks/11-codebook.ipynb). Run its cells in order for the experiment and evidence.
 
-## Experiment A: codebook size
+## Predict before running
 
-Predict reconstruction error, codes used, dead-code count, and perplexity for
-codebook sizes 8, 32, 128, and 512.
+Two encoders use all eight symbols. One uses them evenly; the other uses one symbol 99% of the time. Should their perplexities match?
 
-```bash
-uv run course-aiml-autoencoders study studies/vqvae/vqvae-001-codebook-size.yaml --seeds 0
-```
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-Inspect each `diagnostics.json` and `codebook-usage.png`.
+No. Both have full coverage, but the concentrated encoder has much lower effective vocabulary size.
+</details>
 
-Look for:
+## Run the revealing experiment
 
-- Small codebooks saturating most entries.
-- Larger codebooks offering capacity the optimizer may never use.
-- Lower reconstruction error without proportionally higher effective
-  vocabulary.
-- A few codes monopolizing assignments.
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-Dead codes are entries receiving no validation assignments. A dead code
-contributes no representational capacity even though it increases the nominal
-codebook size.
+## Advancement gate — transfer check
 
-## Experiment B: commitment weight
+A model offers 512 codes, uses 40, and has perplexity 9. What do those three numbers establish?
 
-The commitment term keeps encoder outputs near the selected embeddings.
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-```bash
-uv run course-aiml-autoencoders study studies/vqvae/vqvae-002-commitment.yaml --seeds 0
-```
+512 is nominal vocabulary, 40 received assignments in the evaluated data, and the uneven usage has effective diversity about 9. None alone establishes reconstruction or downstream quality.
+</details>
 
-Compare:
+<details>
+<summary>Optional: go deeper</summary>
 
-- Raw commitment loss
-- Weighted commitment contribution
-- Codebook loss
-- Reconstruction
-- Perplexity and code usage
+Full size and commitment sweeps live in
+`studies/vqvae/vqvae-001-codebook-size.yaml` and
+`studies/vqvae/vqvae-002-commitment.yaml`. Change one factor and compare raw and
+weighted loss terms separately. Dead codes are unobserved in the evaluated
+sample, not proof they can never be used. EMA updates and dead-code recovery
+are further optional experiments.
+</details>
 
-Changing the weight alters optimization pressure, so compare raw and weighted
-terms separately.
-
-## Failure signatures
-
-- Perplexity near 1: nearly all positions choose one code.
-- Many codes used once but a few dominate: nominal coverage hides imbalance.
-- Good reconstruction with low usage: the spatial grid and decoder may carry
-  enough capacity using a small effective vocabulary.
-- High commitment weight with poor reconstruction: encoder flexibility may be
-  overconstrained.
-- Zero codebook gradients: embeddings cannot move; the gradient tests should
-  catch this.
-
-## Optional recovery hypotheses
-
-Do not implement these yet. Predict how each might help:
-
-- EMA codebook updates
-- Reinitializing dead codes from current encoder outputs
-- Smaller codebook
-- Lower-dimensional embeddings
-- Entropy or usage regularization
-
-## Advancement gate
-
-Given $K=512$, 40 used codes, and perplexity 9, explain all three numbers and
-why none alone establishes representation quality.
+**Next:** [Lesson 12](../notebooks/12-code-prior.ipynb).

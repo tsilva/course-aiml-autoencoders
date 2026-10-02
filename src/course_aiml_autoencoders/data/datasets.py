@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import torch
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
@@ -83,9 +84,9 @@ def _datasets(config: dict[str, Any], root: Path):
             random_offset=0,
         )
         generator_seed = int(config.get("split_seed", 0))
-        import torch
-
         generator = torch.Generator().manual_seed(generator_seed)
+        if total < 1 or validation_size < 1:
+            raise ValueError("train_size and validation_size must be positive")
         return random_split(full, [total, validation_size], generator=generator)
 
     dataset_types = {
@@ -94,9 +95,16 @@ def _datasets(config: dict[str, Any], root: Path):
         "cifar10": datasets.CIFAR10,
     }
     dataset_type = dataset_types[name]
-    train = dataset_type(root=root, train=True, download=True, transform=transform)
-    validation = dataset_type(
-        root=root, train=False, download=True, transform=transform
+    full = dataset_type(root=root, train=True, download=True, transform=transform)
+    validation_size = int(config.get("validation_size", len(full) // 10))
+    train_size = int(config.get("train_size", len(full) - validation_size))
+    if train_size < 1 or validation_size < 1 or train_size + validation_size > len(full):
+        raise ValueError("train_size + validation_size must fit in the training split")
+    generator = torch.Generator().manual_seed(int(config.get("split_seed", 0)))
+    train, validation, _unused = random_split(
+        full,
+        [train_size, validation_size, len(full) - train_size - validation_size],
+        generator=generator,
     )
     return train, validation
 
@@ -111,8 +119,6 @@ def build_dataloaders(
     workers = int(training_config.get("num_workers", 0))
     seed = int(training_config.get("seed", 0))
 
-    import torch
-
     generator = torch.Generator().manual_seed(seed)
     common = {
         "batch_size": batch_size,
@@ -126,6 +132,24 @@ def build_dataloaders(
         validation, shuffle=False, drop_last=False, **common
     )
     return train_loader, validation_loader, dataset_spec(dataset_config)
+
+
+def build_test_dataloader(
+    dataset_config: dict[str, Any], training_config: dict[str, Any]
+) -> DataLoader:
+    """Load the official test split only for optional final confirmation."""
+
+    name = str(dataset_config["name"]).lower()
+    dataset_types = {"mnist": datasets.MNIST, "fashion_mnist": datasets.FashionMNIST,
+                     "cifar10": datasets.CIFAR10}
+    if name not in dataset_types:
+        raise ValueError("An official test split requires mnist, fashion_mnist, or cifar10")
+    test = dataset_types[name](
+        root=Path(dataset_config.get("root", "data")), train=False,
+        download=True, transform=transforms.ToTensor(),
+    )
+    return DataLoader(test, batch_size=int(training_config["batch_size"]),
+                      shuffle=False, num_workers=int(training_config.get("num_workers", 0)))
 
 
 def class_names(dataset_name: str) -> tuple[str, ...]:

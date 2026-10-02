@@ -12,144 +12,97 @@
 # ---
 
 # %% [markdown]
-# # Lesson 05 — AE latent geometry and the sampling failure
+# # Lesson 05 — Reconstruction does not choose new codes
 #
-# **Learning objective:** distinguish reconstruction, interpolation, and
-# sampling claims by probing occupied and unoccupied latent regions.
+# **Learning objective:** distinguish interpolation from sampling.
 #
-# Keep three claims separate:
-#
-# 1. Encoded examples reconstruct well.
-# 2. Lines between encoded examples decode plausibly.
-# 3. Samples from a known distribution decode plausibly.
-#
-# An ordinary autoencoder directly optimizes only the first.
+# An AE learns to read notes written by its encoder. Inventing random notes
+# asks the decoder to read a distribution it was never trained to expect.
+# A smooth path between two valid notes is a different claim from a reliable
+# method for drawing new notes.
 
 # %%
 import matplotlib.pyplot as plt
 import torch
-
+from IPython.display import Image, display
+from course_aiml_autoencoders.config import load_yaml, with_overrides
 from course_aiml_autoencoders.course import (
-    balanced_class_batch,
-    latest_run_dir,
-    load_trained_model,
-    repository_root,
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
 )
 from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import plot_image_grid, plot_reconstruction_grid
-from course_aiml_autoencoders.diagnostics.interpolations import linear_interpolation
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
+)
 
 ROOT = repository_root()
-run_dir = latest_run_dir(
-    ROOT / "runs", "ae/ae-002-nonlinearity/nonlinear"
-)
-model, config = load_trained_model(run_dir)
-train_loader, validation_loader, spec = build_dataloaders(
-    config["dataset"], config["training"]
-)
-names = class_names(config["dataset"]["name"])
-inputs, labels = balanced_class_batch(validation_loader, spec.num_classes)
-run_dir
+torch.manual_seed(0)
+PROFILE = "quick"
 
 # %% [markdown]
-# If the previous lesson did not create this run, train
-# `recipes/ae/ae-002-nonlinear.yaml` first. Selecting an exact run keeps all
-# figures and metrics tied to the same checkpoint.
-
-# %%
-with torch.no_grad():
-    output = model(inputs)
-_ = plot_reconstruction_grid(
-    inputs,
-    output.reconstruction,
-    labels=labels,
-    class_names=names,
-    max_items=spec.num_classes,
-    include_error=True,
-)
-
-# %% [markdown]
-# ## Inspect occupied latent regions
+# The default uses eight CPU epochs on 2,048 training images and 512 held-out
+# images. A matching completed run is reused automatically; its exact path and
+# measured duration are printed. These short runs expose mechanisms, not settled
+# rankings. The first Fashion-MNIST lesson downloads the dataset once.
 #
-# Collect encoded validation examples, reduce them to two principal directions
-# for visualization, and color by class. Empty regions in this projection are a
-# warning, not a complete map of an eight-dimensional space.
-
-# %%
-latent_batches = []
-label_batches = []
-with torch.no_grad():
-    for batch_inputs, batch_labels in validation_loader:
-        latent_batches.append(model(batch_inputs).latent)
-        label_batches.append(batch_labels)
-        if sum(batch.shape[0] for batch in latent_batches) >= 2000:
-            break
-latents = torch.cat(latent_batches)[:2000]
-latent_labels = torch.cat(label_batches)[:2000]
-centered = latents - latents.mean(dim=0, keepdim=True)
-_u, _s, vectors = torch.pca_lowrank(centered, q=2)
-coordinates = centered @ vectors[:, :2]
-
-figure, axis = plt.subplots(figsize=(7, 6))
-scatter = axis.scatter(
-    coordinates[:, 0],
-    coordinates[:, 1],
-    c=latent_labels,
-    cmap="tab10",
-    s=8,
-    alpha=0.6,
-)
-axis.set(title="Occupied AE latent regions (2D PCA view)")
-figure.colorbar(scatter, ax=axis, label="class")
-figure.tight_layout()
+# Set `PROFILE = "full"` for the original training budget; `learn(..., rerun=True)`
+# creates fresh evidence. You can return to the prediction while training runs.
 
 # %% [markdown]
-# ## Interpolation is not sampling
+# ## Predict before running
 #
-# Predict what will happen in the middle of a line between a shoe and a shirt.
-# Smoothness follows from the decoder; probability density does not.
+# Should a smooth interpolation guarantee that random standard-normal codes produce plausible garments?
 #
 # <details>
 # <summary>Reveal the expected reasoning</summary>
 #
-# The middle should change smoothly because the decoder is continuous, but it
-# may resemble an implausible pixel mixture rather than a likely garment. One
-# smooth path does not establish that its intermediate points occupy
-# high-density latent regions.
+# No. Continuity gives smooth changes; it says nothing about how probable the visited codes are. The AE has not matched its encoded distribution to a standard normal.
 # </details>
 
 # %%
+from course_aiml_autoencoders.diagnostics.interpolations import linear_interpolation
+
+run_dir = learn("recipes/ae/ae-002-nonlinear.yaml", profile=PROFILE)
+model, config = load_trained_model(run_dir)
+_, validation_loader, spec = build_dataloaders(config["dataset"], config["training"])
+inputs, labels = balanced_class_batch(validation_loader, spec.num_classes)
 with torch.no_grad():
-    interpolation = linear_interpolation(
-        output.latent[0], output.latent[6], 11
-    )
-    decoded_path = model.decode(interpolation)
-_ = plot_image_grid(
-    decoded_path,
-    title="A straight latent interpolation",
-    max_items=11,
-)
+    output = model(inputs)
+    path = linear_interpolation(output.latent[0], output.latent[-1], 9)
+    interpolated = model.decode(path)
+    random_images = model.decode(torch.randn(9, config["model"]["latent_dim"]))
+_ = plot_image_grid(interpolated, title="Walk between two encoded examples", max_items=9)
+_ = plot_image_grid(random_images, title="Invent standard-normal codes", max_items=9)
 
 # %% [markdown]
-# Now compare the empirical latent scale with the convenient prior $N(0,I)$.
-
-# %%
-print("encoded mean:", latents.mean(dim=0))
-print("encoded std:", latents.std(dim=0))
-torch.manual_seed(0)
-with torch.no_grad():
-    random_decoded = model.decode(
-        torch.randn(16, latents.shape[1])
-    )
-_ = plot_image_grid(
-    random_decoded,
-    title="N(0, I) is an out-of-distribution query for this decoder",
-    max_items=16,
-)
-
-# %% [markdown]
-# ## Advancement gate
+# Inspect plausibility as well as smoothness. Encoded means, scales, correlations,
+# and occupied regions may differ from the convenient standard normal. A few
+# plausible random images would not establish a good sampling distribution.
 #
-# Explain why smooth interpolation does not imply valid random sampling. Your
-# answer must mention occupied regions, probability density, latent scale, and
-# what the training objective did—or did not—constrain.
+# Use the AE for reconstruction or a separately evaluated representation task.
+# For generation, we need training pressure or an additional model that tells us
+# where valid codes come from. That motivates the VAE.
+
+# %% [markdown]
+# ## Advancement gate — transfer check
+#
+# You rescale every AE latent coordinate to unit variance. Is generation now solved?
+#
+# <details>
+# <summary>Reveal the expected reasoning</summary>
+#
+# No. Matching coordinate scales does not match correlations, shapes, or low-density holes. Sampling requires a distribution that models the joint encoded data.
+# </details>
+
+# %% [markdown]
+# <details>
+# <summary>Optional: go deeper</summary>
+#
+# Plot a PCA projection of encoded validation examples, colored by class.
+# A projection helps reveal structure but cannot map every hole in a
+# higher-dimensional space. See the [geometry reference](../lessons/05-ae-geometry.md).
+# </details>
+
+# %% [markdown]
+# **Next:** [Lesson 06](06-vae-control.ipynb). No worksheet is required.

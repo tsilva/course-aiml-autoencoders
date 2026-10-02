@@ -12,179 +12,101 @@
 # ---
 
 # %% [markdown]
-# # Lesson 04 — Denoising and sparse autoencoders
+# # Lesson 04 — Learn to remove noise
 #
-# **Learning objective:** see how the training task and regularization pressure
-# change what a latent representation is rewarded for preserving.
+# **Learning objective:** distinguish reconstructing an input from recovering its clean target.
 #
-# A bottleneck is defined by more than its coordinate count. Changing the
-# training task or adding pressure to latent activity changes what information
-# the representation is rewarded for preserving.
+# Give an ordinary AE a noisy image and copying some noise may help its task.
+# Give a denoising AE the same noisy image but score against the clean image,
+# and copying noise is penalized. Change only training corruption; hold the
+# architecture, clean targets, split, optimizer, and evaluation noise fixed.
 
 # %%
-import json
-import subprocess
-import sys
-
 import matplotlib.pyplot as plt
 import torch
 from IPython.display import Image, display
-
-from course_aiml_autoencoders.config import load_yaml
-from course_aiml_autoencoders.course import balanced_class_batch, repository_root
+from course_aiml_autoencoders.config import load_yaml, with_overrides
+from course_aiml_autoencoders.course import (
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
+)
 from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import plot_image_grid
-from course_aiml_autoencoders.training import corrupt_inputs
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
+)
 
 ROOT = repository_root()
-denoising_recipe = load_yaml(ROOT / "recipes/ae/ae-003-denoising.yaml")
-train_loader, validation_loader, spec = build_dataloaders(
-    denoising_recipe["dataset"], denoising_recipe["training"]
-)
-inputs, labels = balanced_class_batch(validation_loader, spec.num_classes)
-names = class_names(denoising_recipe["dataset"]["name"])
-
-# %% [markdown]
-# ## Poke the denoising task before training
-#
-# The model receives $\tilde{x}$ but the objective compares its output with
-# clean $x$:
-#
-# $$
-# L=\lVert g(f(\tilde{x}))-x\rVert^2
-# $$
-#
-# Predict whether this training task should improve corrupted-input output and
-# whether it must also improve clean-input MSE.
-#
-# <details>
-# <summary>Reveal the expected reasoning</summary>
-#
-# Training against clean targets should improve reconstructions of corrupted
-# inputs because copying noise is never rewarded. Clean-input MSE need not
-# improve: robustness pressure can trade a little exact clean-image fidelity
-# for invariance to corruption.
-# </details>
-
-# %%
 torch.manual_seed(0)
-corrupted = corrupt_inputs(
-    inputs,
-    denoising_recipe["training"]["input_corruption"],
-)
-_ = plot_image_grid(
-    inputs,
-    labels=labels,
-    class_names=names,
-    title="Clean targets",
-)
-_ = plot_image_grid(
-    corrupted,
-    labels=labels,
-    class_names=names,
-    title="Inputs seen by the denoising model",
-)
-
-# %%
-subprocess.run(
-    [
-        sys.executable,
-        "-m",
-        "course_aiml_autoencoders.cli",
-        "study",
-        str(ROOT / "studies/ae/ae-004-denoising.yaml"),
-        "--seeds",
-        "0",
-    ],
-    cwd=ROOT,
-    check=True,
-)
-
-# %%
-denoising_study = load_yaml(ROOT / "studies/ae/ae-004-denoising.yaml")
-denoising_summary_path = sorted(
-    (ROOT / "runs" / denoising_study["id"]).glob("study-summary-*.json")
-)[-1]
-denoising_summary = json.loads(denoising_summary_path.read_text())
-for record in denoising_summary["records"]:
-    print(record["variant"], record["best_validation_metrics"])
-    figures = ROOT / record["run_dir"] / "figures"
-    display(Image(filename=str(figures / "reconstructions.png")))
-    noisy_figure = figures / "corrupted-input-reconstructions.png"
-    if noisy_figure.exists():
-        display(Image(filename=str(noisy_figure)))
+PROFILE = "quick"
 
 # %% [markdown]
-# Clean validation MSE is not the direct metric for the denoising claim. The
-# aligned corrupted-input figure is essential evidence. This is an example of a
-# metric that is valid but incomplete for the scientific question.
+# The default uses eight CPU epochs on 2,048 training images and 512 held-out
+# images. A matching completed run is reused automatically; its exact path and
+# measured duration are printed. These short runs expose mechanisms, not settled
+# rankings. The first Fashion-MNIST lesson downloads the dataset once.
+#
+# Set `PROFILE = "full"` for the original training budget; `learn(..., rerun=True)`
+# creates fresh evidence. You can return to the prediction while training runs.
 
 # %% [markdown]
-# ## Sparse activity is a different bottleneck
+# ## Predict before running
 #
-# $$
-# L=L_{\text{reconstruction}}+
-# \lambda\operatorname{mean}(|z|)
-# $$
-#
-# Predict reconstruction MSE and mean absolute latent activation as $\lambda$
-# increases. Which should move first?
+# Which model should better recover a clean image from noise? Must it also win on clean inputs?
 #
 # <details>
 # <summary>Reveal the expected reasoning</summary>
 #
-# Mean absolute activation should fall as L1 pressure grows. Mild pressure may
-# reduce activity before materially changing reconstruction; sufficiently large
-# pressure should damage reconstruction or drive the model toward constant
-# outputs.
+# The denoising model is trained for noisy-input recovery. It can trade some clean-input fidelity for robustness, so clean MSE alone cannot answer the denoising question.
 # </details>
 
 # %%
-subprocess.run(
-    [
-        sys.executable,
-        "-m",
-        "course_aiml_autoencoders.cli",
-        "study",
-        str(ROOT / "studies/ae/ae-005-sparsity.yaml"),
-        "--seeds",
-        "0",
-    ],
-    cwd=ROOT,
-    check=True,
-)
-
-# %%
-sparsity_study = load_yaml(ROOT / "studies/ae/ae-005-sparsity.yaml")
-sparsity_summary_path = sorted(
-    (ROOT / "runs" / sparsity_study["id"]).glob("study-summary-*.json")
-)[-1]
-sparsity_summary = json.loads(sparsity_summary_path.read_text())
-weights = []
-reconstruction = []
-activation = []
-for record in sparsity_summary["records"]:
-    weights.append(float(record["variant"].replace("l1-", "")))
-    metrics = record["best_validation_metrics"]
-    reconstruction.append(metrics["validation/reconstruction_loss"])
-    activation.append(metrics["validation/latent_l1"])
-
-figure, axes = plt.subplots(1, 2, figsize=(11, 4))
-axes[0].plot(weights, reconstruction, marker="o")
-axes[0].set(xscale="symlog", xlabel="L1 weight", ylabel="MSE")
-axes[1].plot(weights, activation, marker="o")
-axes[1].set(xscale="symlog", xlabel="L1 weight", ylabel="Mean |z|")
-figure.suptitle("Raw terms reveal the tradeoff hidden by total loss")
-figure.tight_layout()
+recipe = load_yaml(ROOT / "recipes/ae/ae-003-denoising.yaml")
+clean_recipe = with_overrides(recipe, {"training.input_corruption": None})
+clean_recipe["id"] = "ae/ae-003-denoising-clean-control"
+clean_dir = learn(clean_recipe, profile=PROFILE)
+denoising_dir = learn(recipe, profile=PROFILE)
+for name, run_dir in (("clean-trained", clean_dir), ("denoising", denoising_dir)):
+    metrics = load_run_summary(run_dir)["best_validation_metrics"]
+    print(name, "clean MSE:", metrics["validation/reconstruction_loss"],
+          "noisy-input → clean-target MSE:", metrics["validation/corrupted_mse"],
+          "unprocessed noisy-input MSE:", metrics["validation/noisy_input_mse"])
+    display(Image(filename=str(run_dir / "figures/corrupted-input-reconstructions.png")))
 
 # %% [markdown]
-# ## Advancement gate
+# Read the four rows: clean target, noisy input, reconstruction, clean-target
+# error. Both models see identical validation corruption. The noise-only score
+# also shows how much improvement comes from processing the image at all.
 #
-# Contrast:
+# If the short experiment contradicts the prediction, check whether both models
+# learned enough before claiming denoising is ineffective. Use this approach for
+# noise resembling the training corruption; robustness to a new noise type is a
+# separate question.
+
+# %% [markdown]
+# ## Advancement gate — transfer check
 #
-# - a low-dimensional latent,
-# - corrupted input with a clean target,
-# - and L1 pressure on latent activity.
+# A denoiser improves clean-input MSE but leaves noisy images untouched. Has it demonstrated denoising?
 #
-# State what behavior each encourages and why the three interventions are not
-# interchangeable.
+# <details>
+# <summary>Reveal the expected reasoning</summary>
+#
+# No. Score noisy-input reconstructions against the clean targets on the same corruptions used for the control. Clean-input improvement answers another question.
+# </details>
+
+# %% [markdown]
+# <details>
+# <summary>Optional: go deeper</summary>
+#
+# Sparse AEs add a cost for latent activity rather than changing input noise:
+# `L = reconstruction + lambda * mean(abs(z))`. Smaller mean activity alone does
+# not prove more zero activations or useful sparsity; latent rescaling can also
+# reduce that number. Inspect activity patterns and decoder weights.
+#
+# Full studies: `studies/ae/ae-004-denoising.yaml` and
+# `studies/ae/ae-005-sparsity.yaml`. Run them only if these extensions answer your
+# next question.
+# </details>
+
+# %% [markdown]
+# **Next:** [Lesson 05](05-ae-geometry.ipynb). No worksheet is required.

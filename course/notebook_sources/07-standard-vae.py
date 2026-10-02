@@ -12,123 +12,95 @@
 # ---
 
 # %% [markdown]
-# # Lesson 07 — ELBO, KL pressure, and a usable prior
+# # Lesson 07 — Give the clouds a shared address system
 #
-# **Learning objective:** interpret the VAE objective as a rate–distortion
-# tradeoff and test whether prior pressure makes sampling more meaningful.
+# **Learning objective:** explain why prior pressure trades reconstruction detail for easier sampling.
 #
-# The implemented minimization objective is:
-#
-# $$
-# L=
-# \underbrace{-\mathbb E_{q(z|x)}[\log p_\theta(x|z)]}_{\text{distortion}}
-# +\beta\underbrace{D_{KL}(q_\phi(z|x)\|p(z))}_{\text{rate}}
-# $$
-#
-# with $p(z)=N(0,I)$ and $\beta=1$.
+# Imagine every input's cloud using a different, far-away address system.
+# Random notes drawn near zero will miss many of them. KL pressure charges for
+# moving or narrowing a cloud away from the shared standard-normal prior.
+# That encourages overlap with places our sampler knows how to visit.
 
 # %%
+import matplotlib.pyplot as plt
 import torch
-
-from course_aiml_autoencoders.config import load_yaml
+from IPython.display import Image, display
+from course_aiml_autoencoders.config import load_yaml, with_overrides
 from course_aiml_autoencoders.course import (
-    balanced_class_batch,
-    latest_run_dir,
-    load_run_summary,
-    load_trained_model,
-    repository_root,
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
 )
 from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import plot_image_grid, plot_reconstruction_grid
-from course_aiml_autoencoders.training import run_training
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
+)
 
 ROOT = repository_root()
-config = load_yaml(ROOT / "recipes/vae/vae-001-basic.yaml")
+torch.manual_seed(0)
+PROFILE = "quick"
 
 # %% [markdown]
-# ## Predict the causal tradeoff
+# The default uses eight CPU epochs on 2,048 training images and 512 held-out
+# images. A matching completed run is reused automatically; its exact path and
+# measured duration are printed. These short runs expose mechanisms, not settled
+# rankings. The first Fashion-MNIST lesson downloads the dataset once.
 #
-# Relative to beta zero, predict:
+# Set `PROFILE = "full"` for the original training budget; `learn(..., rerun=True)`
+# creates fresh evidence. You can return to the prediction while training runs.
+
+# %% [markdown]
+# ## Predict before running
 #
-# - reconstruction distortion,
-# - raw KL,
-# - active dimensions,
-# - and prior-sample coherence.
-#
-# State *why* each quantity should move, not only its direction.
+# Compared with beta zero, should prior pressure improve every reconstruction and every sample?
 #
 # <details>
 # <summary>Reveal the expected reasoning</summary>
 #
-# Relative to beta zero, reconstruction should usually worsen because KL now
-# charges for input information. Raw KL and active dimensions should decrease as
-# posteriors move toward $N(0,I)$. Prior samples should become more coherent
-# because decoding $N(0,I)$ is now closer to the latent distribution seen during
-# training. Excessive pressure could instead produce posterior collapse.
+# No. It can improve prior compatibility while sacrificing reconstruction information. Too much pressure can make clouds lose their input-specific information.
 # </details>
 
 # %%
-result = run_training(config, run_root=ROOT / "runs")
-run_dir = result.run_dir
-standard_summary = load_run_summary(run_dir)
-beta_zero_dir = latest_run_dir(ROOT / "runs", "vae/vae-000-kl-off")
-beta_zero_summary = load_run_summary(beta_zero_dir)
-
-comparison = {
-    "beta-zero": beta_zero_summary["best_validation_metrics"],
-    "beta-one": standard_summary["best_validation_metrics"],
-}
-comparison
+zero_dir = learn("recipes/vae/vae-000-kl-off.yaml", profile=PROFILE)
+one_dir = learn("recipes/vae/vae-001-basic.yaml", profile=PROFILE)
+for name, run_dir in (("beta zero", zero_dir), ("beta one", one_dir)):
+    metrics = load_run_summary(run_dir)["best_validation_metrics"]
+    print(name, "reconstruction BCE:", metrics["validation/reconstruction_loss"],
+          "raw KL:", metrics["validation/kl_loss"])
+    display(Image(filename=str(run_dir / "figures/random-latent-samples.png")))
 
 # %% [markdown]
-# Do not compare this BCE number with the earlier AE MSE. The VAE reconstruction
-# term is binary cross-entropy summed per example; the scale and observation
-# model changed.
-
-# %%
-model, resolved = load_trained_model(run_dir)
-_train_loader, validation_loader, spec = build_dataloaders(
-    resolved["dataset"], resolved["training"]
-)
-inputs, labels = balanced_class_batch(validation_loader, spec.num_classes)
-names = class_names(resolved["dataset"]["name"])
-with torch.no_grad():
-    output = model(inputs)
-_ = plot_reconstruction_grid(
-    inputs,
-    output.reconstruction,
-    labels=labels,
-    class_names=names,
-    max_items=spec.num_classes,
-    include_error=True,
-)
+# Check whether samples become more coherent and whether reconstruction cost
+# rises. Neither trend is guaranteed by eight epochs. This VAE uses BCE summed per
+# image; earlier AEs used mean pixel MSE. Their loss magnitudes cannot be compared
+# directly. Center-decoded validation reconstruction is also not a Monte Carlo
+# estimate of the full stochastic ELBO.
+#
+# A VAE gives a known sampling prior and continuous probabilistic latents. The
+# tradeoff is reconstruction fidelity, imperfect prior fit, and collapse risk.
 
 # %% [markdown]
-# ## Inspect whether the prior became more useful
+# ## Advancement gate — transfer check
 #
-# A more prior-compatible latent can cost reconstruction information. Judge the
-# exchange with both metrics and images.
-
-# %%
-torch.manual_seed(0)
-with torch.no_grad():
-    prior_samples = model.decode(torch.randn(16, config["model"]["latent_dim"]))
-_ = plot_image_grid(
-    prior_samples,
-    title="Samples after beta-one prior pressure",
-    max_items=16,
-)
+# All input clouds match the prior perfectly, and every reconstruction looks alike. Is zero KL a success?
+#
+# <details>
+# <summary>Reveal the expected reasoning</summary>
+#
+# It indicates input information was lost: the decoder is not reconstructing distinct inputs. Check latent dependence and reconstruction evidence, not KL alone.
+# </details>
 
 # %% [markdown]
-# ## Low KL is not automatically success
+# <details>
+# <summary>Optional: go deeper</summary>
 #
-# KL approaching zero means $q(z|x)$ approaches the prior for every input. If
-# reconstructions remain input-dependent, the model may use little information
-# efficiently. If reconstructions become constant, the decoder ignores $z$:
-# posterior collapse.
-#
-# ## Advancement gate
-#
-# Explain why KL is an information rate, why reducing it can help sampling, and
-# why reducing it to zero can destroy the representation. Include
-# “posterior collapse,” “decoder ignores $z$,” and “reconstruction evidence.”
+# The beta-one negative ELBO combines expected negative log likelihood with
+# $D_{KL}(q(z|x)\|p(z))$. Beta changes their relative price.
+# Average posterior-to-prior KL includes input information **and** aggregate
+# posterior mismatch; it is not an exact measurement of mutual information.
+# Nonzero per-dimension KL is a diagnostic, not proof a coordinate carries useful
+# input information. See the [objective reference](../lessons/07-standard-vae.md).
+# </details>
+
+# %% [markdown]
+# **Next:** [Lesson 08](08-rate-distortion.ipynb). No worksheet is required.

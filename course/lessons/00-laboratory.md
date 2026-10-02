@@ -1,71 +1,51 @@
-# Lesson 00 — Laboratory orientation and trust checks
+# Lesson 00 — See what an autoencoder does
 
-> Interactive lab: [open the generated notebook](../notebooks/00-laboratory.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/00-laboratory.py).
+**Learning objective:** follow an image through an encoder, a bottleneck, and a decoder.
 
-## Learning objective
+Imagine sending a picture through a tiny note. The encoder writes the note;
+the decoder rebuilds a picture using only that note. Training teaches both sides
+the same shorthand. Today we inspect the system *before* it learns.
 
-Understand the repository contract and establish that every model can execute,
-backpropagate, checkpoint, and produce inspectable artifacts before spending
-time on real experiments.
+You need basic Python, tensors as arrays of numbers, and the idea that training
+adjusts weights to reduce an error. Probability and gradient details are
+introduced when needed. Run cells in order; make a mental prediction, then
+expand its explanation. The course moves from reconstruction to sampling and
+finally to discrete visual tokens.
 
-## Read first
+[Open the notebook](../notebooks/00-laboratory.ipynb). Run its cells in order for the experiment and evidence.
 
-- `README.md`
-- `docs/EXPERIMENT_PROTOCOL.md`
-- `src/course_aiml_autoencoders/models/outputs.py`
-- `src/course_aiml_autoencoders/training/trainer.py`
+## Predict before running
 
-Answer before running: why does every model return a reconstruction, latent,
-and model-specific `extras` dictionary rather than making the trainer know each
-architecture?
+An untrained model already has an encoder and decoder. Will its reconstruction resemble the input?
 
-## Run
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-```bash
-uv sync --locked
-uv run pytest
-uv run course-aiml-autoencoders train recipes/smoke/fake-ae.yaml --device cpu
-uv run course-aiml-autoencoders train recipes/smoke/fake-vae.yaml --device cpu
-uv run course-aiml-autoencoders train recipes/smoke/fake-vqvae.yaml --device cpu
-```
+Usually not: the shape of the system is in place, but the weights have not learned a shared shorthand.
+</details>
 
-These use random synthetic images for one epoch. They are integration tests,
-not learning results.
+## Run the revealing experiment
 
-Inspect one directory:
+Lesson 00 inspects untrained reconstruction on synthetic shapes. No dataset
+download or training is needed.
 
-```bash
-uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
-```
+## Advancement gate — transfer check
 
-## Look for
+A colleague shows you a model with perfect tensor shapes and no training history. What evidence is still missing?
 
-- All tests pass.
-- Each run contains a resolved config, JSONL metrics, best checkpoint, summary,
-  and reconstruction figure.
-- AE metrics contain reconstruction and optional latent regularization terms.
-- VAE metrics expose reconstruction, raw KL, effective KL, weighted KL, and
-  beta separately.
-- VQ-VAE metrics expose reconstruction, codebook, commitment, perplexity, and
-  codes used.
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-Do not compare the three smoke total losses. Their objective scales and terms
-are different.
+Evidence that training produces input-dependent reconstructions on held-out images and improves on an input-ignoring baseline.
+</details>
 
-## Failure signatures
+<details>
+<summary>Optional: go deeper</summary>
 
-- No checkpoint: validation loss was not finite or the training loop failed.
-- Missing VAE KL: the model/objective contract is broken.
-- No VQ codebook gradient test: the embeddings might never learn.
-- A smoke reconstruction that looks gray is expected; random images have no
-  compressible semantic structure and one epoch is deliberately insufficient.
+For implementation trust checks, run `uv run --frozen python -m pytest`.
+The model returns reconstruction, latent, and specialized extras so one generic
+trainer can serve all three families. Models and objectives own their math;
+notebooks configure experiments and inspect evidence.
+</details>
 
-## Advancement gate
-
-Without reading code, explain:
-
-1. What a recipe controls.
-2. What a study adds on top of a recipe.
-3. Why raw runs are ignored by Git while reports are committed.
-4. Why passing a smoke run does not show that a model is scientifically valid.
+**Next:** [Lesson 01](../notebooks/01-mean-baseline.ipynb).

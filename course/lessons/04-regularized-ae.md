@@ -1,72 +1,51 @@
-# Lesson 04 — Denoising and sparse autoencoders
+# Lesson 04 — Learn to remove noise
 
-> Interactive lab: [open the generated notebook](../notebooks/04-regularized-ae.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/04-regularized-ae.py).
+**Learning objective:** distinguish reconstructing an input from recovering its clean target.
 
-## Learning objective
+Give an ordinary AE a noisy image and copying some noise may help its task.
+Give a denoising AE the same noisy image but score against the clean image,
+and copying noise is penalized. Change only training corruption; hold the
+architecture, clean targets, split, optimizer, and evaluation noise fixed.
 
-Learn that an autoencoder bottleneck is not defined only by its number of
-coordinates. The training task and regularization also determine what the
-latent representation must preserve.
+[Open the notebook](../notebooks/04-regularized-ae.ipynb). Run its cells in order for the experiment and evidence.
 
-## Experiment A: denoising
+## Predict before running
 
-The model receives corrupted input $\tilde{x}$ but is trained against clean
-target $x$:
+Which model should better recover a clean image from noise? Must it also win on clean inputs?
 
-$$
-L = \lVert g(f(\tilde{x}))-x\rVert^2
-$$
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-Predict whether denoising training will improve noisy-input output and whether
-it might slightly worsen clean-input reconstruction.
+The denoising model is trained for noisy-input recovery. It can trade some clean-input fidelity for robustness, so clean MSE alone cannot answer the denoising question.
+</details>
 
-```bash
-uv run course-aiml-autoencoders study studies/ae/ae-004-denoising.yaml --seeds 0
-```
+## Run the revealing experiment
 
-Inspect:
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-- `reconstructions.png` for clean inputs.
-- `corrupted-input-reconstructions.png` for the denoising variant.
-- Validation MSE, remembering validation itself uses clean inputs.
+## Advancement gate — transfer check
 
-The most important denoising evidence is visual because the current shared
-validation metric measures clean reconstruction. Record this limitation.
+A denoiser improves clean-input MSE but leaves noisy images untouched. Has it demonstrated denoising?
 
-## Experiment B: sparsity
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-The sparse objective is:
+No. Score noisy-input reconstructions against the clean targets on the same corruptions used for the control. Clean-input improvement answers another question.
+</details>
 
-$$
-L = L_{\text{reconstruction}} + \lambda\operatorname{mean}(|z|)
-$$
+<details>
+<summary>Optional: go deeper</summary>
 
-Predict the curves for reconstruction MSE and mean absolute latent activation
-as $\lambda$ increases.
+Sparse AEs add a cost for latent activity rather than changing input noise:
+`L = reconstruction + lambda * mean(abs(z))`. Smaller mean activity alone does
+not prove more zero activations or useful sparsity; latent rescaling can also
+reduce that number. Inspect activity patterns and decoder weights.
 
-```bash
-uv run course-aiml-autoencoders study studies/ae/ae-005-sparsity.yaml --seeds 0
-```
+Full studies: `studies/ae/ae-004-denoising.yaml` and
+`studies/ae/ae-005-sparsity.yaml`. Run them only if these extensions answer your
+next question.
+</details>
 
-Inspect named loss terms separately. Total loss cannot tell you whether a run
-has low reconstruction error, low activation, or merely a different weighting.
-
-## Failure signatures
-
-- Weighted regularization is exactly zero with nonzero weight: loss wiring is
-  broken.
-- Very high sparsity pressure and constant reconstructions: the latent has
-  become uninformative.
-- Denoising output simply copies noise: corruption may not be applied or the
-  model may be undertrained.
-
-## Advancement gate
-
-Contrast these three bottlenecks:
-
-- Low latent dimension
-- Noisy input with a clean target
-- L1 pressure on latent activity
-
-Explain what behavior each one encourages and why they are not interchangeable.
+**Next:** [Lesson 05](../notebooks/05-ae-geometry.ipynb).

@@ -1,78 +1,48 @@
-# Lesson 10 — VQ-VAE quantization and straight-through learning
+# Lesson 10 — Snap notes to a learned vocabulary
 
-> Interactive lab: [open the generated notebook](../notebooks/10-vqvae.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/10-vqvae.py).
+**Learning objective:** understand vector quantization as choosing symbols for image regions.
 
-## Learning objective
+Instead of any continuous note, use one of a limited set of learned symbols.
+A VQ-VAE encoder describes each image region as a vector; quantization snaps
+that vector to its nearest codebook entry. The decoder rebuilds the image from
+a grid of those entries. First watch four points snap to three fixed symbols.
 
-Understand how a continuous encoder output becomes a grid of discrete tokens
-and how gradients train both the encoder and the codebook.
+[Open the notebook](../notebooks/10-vqvae.ipynb). Run its cells in order for the experiment and evidence.
 
-For each encoder vector $z_e$, select the nearest embedding:
+## Predict before running
 
-$$
-k=\arg\min_j \lVert z_e-e_j\rVert^2,\qquad z_q=e_k
-$$
+If two nearby vectors choose the same symbol, will the decoder still see their small difference?
 
-The objective contains:
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-$$
-L = L_{\text{reconstruction}}
-+ \lVert \operatorname{sg}[z_e]-e_k\rVert^2
-+ \beta\lVert z_e-\operatorname{sg}[e_k]\rVert^2
-$$
+No. Quantization replaces both with the same embedding. That loses detail but creates a discrete vocabulary.
+</details>
 
-where `sg` means stop-gradient.
+## Run the revealing experiment
 
-## Read and trace gradients
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-Read:
+## Advancement gate — transfer check
 
-- `src/course_aiml_autoencoders/models/quantizer.py`
-- `src/course_aiml_autoencoders/models/vqvae.py`
-- `src/course_aiml_autoencoders/objectives/vqvae.py`
+The codebook and decoder are trained. Why can a grid of uniformly random tokens still look incoherent?
 
-Before running, identify:
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-- Which term updates the codebook.
-- Which term updates the encoder.
-- How reconstruction gradients cross the nondifferentiable nearest-neighbor
-  selection.
+Knowing word meanings does not teach sentence probabilities. The model has learned symbols and decoding, not a distribution over coherent spatial arrangements.
+</details>
 
-The straight-through expression uses the quantized value in the forward pass
-but gives it the encoder latent's gradient in the backward pass.
+<details>
+<summary>Optional: go deeper</summary>
 
-## Run
+Nearest-neighbor selection is $k=\arg\min_j\|z_e-e_j\|^2$.
+Straight-through uses the snapped value forward and an identity surrogate
+gradient backward; this is biased. Reconstruction gradients reach the encoder,
+codebook loss updates embeddings, and commitment loss updates the encoder.
+For isolated gradient probes, see the [VQ reference](../lessons/10-vqvae.md).
+</details>
 
-```bash
-uv run course-aiml-autoencoders train recipes/vqvae/vqvae-001-basic.yaml
-uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
-```
-
-## Inspect
-
-- `reconstructions.png`
-- `token-maps.png`: each $7\times7$ cell is a discrete code index.
-- `codebook-usage.png`
-- `diagnostics.json`: codes used, dead codes, and perplexity.
-- `uniform-random-token-samples.png`
-
-Codebook perplexity is the exponential entropy of the assignment
-distribution. It is an effective vocabulary size, not reconstruction quality.
-A 128-entry codebook with perplexity 12 behaves roughly like only a dozen
-uniformly used codes.
-
-## The second sampling failure
-
-The VQ-VAE learned a vocabulary and decoder, but no distribution over valid
-token arrangements. Uniformly random code grids usually decode incoherently.
-This is analogous to choosing random words uniformly and expecting a sentence.
-
-## Advancement gate
-
-Explain why:
-
-1. Argmin blocks ordinary gradients.
-2. The straight-through estimator is deliberately biased.
-3. Codebook perplexity and codebook size are different.
-4. A trained VQ-VAE is not yet a complete generative model.
+**Next:** [Lesson 11](../notebooks/11-codebook.ipynb).

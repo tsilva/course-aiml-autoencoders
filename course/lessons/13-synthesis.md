@@ -1,87 +1,53 @@
-# Lesson 13 — Final comparison and teach-back
+# Lesson 13 — Choose a representation for a task
 
-> Interactive lab: [open the generated notebook](../notebooks/13-synthesis.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/13-synthesis.py).
+**Learning objective:** select a model from required behavior and diagnose contradictory evidence.
 
-## Learning objective
+Choose the mechanism the task needs: an AE for input-conditioned
+reconstruction, a VAE for regularized continuous sampling, or a VQ-VAE for
+visual tokens plus a learned prior for generation. Finish with one choice and
+one unfamiliar failure case. A report, seed sweep, and extra application are
+optional extensions.
 
-Choose among AE, VAE, and VQ-VAE based on representation and generation
-requirements rather than one universal leaderboard.
+[Open the notebook](../notebooks/13-synthesis.ipynb). Run its cells in order for the experiment and evidence.
 
-## First verify the laboratory
+## Predict before running
 
-```bash
-uv run pytest
-uv lock --check
-git diff --check
-```
+A product needs compact discrete image tokens for another model. Which family fits, and what evidence would you inspect?
 
-## Select finalists
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-Choose:
+VQ-VAE. Check reconstruction, token maps, and global vocabulary usage. If the product also generates images, evaluate a prior paired with that exact representation.
+</details>
 
-- One deterministic AE
-- One VAE beta/remedy configuration
-- One VQ-VAE codebook/commitment configuration
-- The learned prior paired with that exact VQ-VAE
+## Run the revealing experiment
 
-Record exact run directories and resolved configs. Do not compare a final
-checkpoint from one configuration with diagnostics from another.
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-## Build the comparison
+## Advancement gate — transfer check
 
-Complete this table:
+An unfamiliar VAE has high KL, excellent reconstruction, and poor prior samples. What single next check would distinguish useful input information from prior mismatch?
 
-| Question | AE | VAE | VQ-VAE |
-|---|---|---|---|
-| Latent type | | | |
-| Encoder output | | | |
-| Bottleneck mechanism | | | |
-| Reconstruction evidence | | | |
-| Utilization diagnostic | | | |
-| Can sample directly? | | | |
-| Additional prior required? | | | |
-| Main collapse mode | | | |
-| Best use case | | | |
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-Do not compare total objectives numerically. For pixel reconstruction, compare
-only runs with the same data range, observation model, and reduction.
+Inspect the encoded aggregate distribution versus the sampling prior, or test a controlled change in beta. High KL alone does not mean useful representation capacity; it also includes aggregate mismatch. Avoid changing architecture, data, and beta together.
+</details>
 
-## Confirm only important claims
+<details>
+<summary>Optional: go deeper</summary>
 
-For any conclusion that depends on a small numerical difference, rerun the two
-relevant variants:
+For a durable claim, run only the relevant two variants over seeds 0, 1,
+and 2, report mean and variation, and inspect seed-specific failures. Use
+[WORKSHEET.md](../WORKSHEET.md) only when preserving a research conclusion.
 
-```bash
-uv run course-aiml-autoencoders study <STUDY_FILE> --seeds 0 1 2
-```
+For a downstream extension, freeze the encoder and compare a classifier or
+retrieval probe on latent features with raw pixels and PCA. Keep identical
+splits and assess the task rather than assuming reconstruction implies utility.
 
-Report the mean, variation, qualitative consistency, and any seed-specific
-failure. A single run is sufficient for understanding mechanics but weak
-evidence for close model rankings.
-
-## Teach-back
-
-Without notes, give a ten-minute explanation covering:
-
-1. Why a deterministic AE can reconstruct but lacks a known sampling prior.
-2. How reparameterization enables VAE gradients.
-3. Why KL creates a rate–distortion tradeoff.
-4. How posterior collapse appears in metrics and images.
-5. How VQ nearest-neighbor selection becomes trainable.
-6. Why codebook size differs from effective usage.
-7. Why VQ-VAE requires a token prior for coherent generation.
-
-Then answer:
-
-- Which model would you choose for denoising?
-- Which for smooth continuous interpolation?
-- Which for learning reusable discrete visual tokens?
-- Which failure metric would you inspect first for each?
-
-## Completion criterion
-
-The course is complete when you can predict the major metric and visual changes
-before running a beta, bottleneck, or codebook ablation—and can explain a
-contradictory result by proposing a controlled next experiment rather than
-changing several things at once.
+Use `build_test_dataloader` for final confirmation after choosing the model.
+The official test split is reserved; routine training and selection use a fixed
+holdout from the original training split. Do not tune again on test results.
+</details>
