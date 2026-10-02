@@ -30,47 +30,14 @@ Follow lessons 00–13 in order.
 | [12 · Learn which token arrangements belong together](course/notebooks/12-code-prior.ipynb) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/12-code-prior.ipynb) | Learn a token prior; compare prediction baselines and sampling. |
 | [13 · Choose a representation for a task](course/notebooks/13-synthesis.ipynb) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/13-synthesis.ipynb) | Choose an AE, VAE, or VQ-VAE for a task. |
 
-<details>
-<summary>Colab setup — run once in each new session before the lesson cells</summary>
+In Colab, select **Runtime → Run all**. The first cell fetches the course code
+and sets up imports automatically. Downloads and experiments disappear when
+the runtime resets.
 
-Choose a CPU runtime with Python 3.11 or 3.12 under **Runtime → Change runtime
-type**. Colab's [runtime version guide](https://research.google.com/colaboratory/runtime-version-faq.html)
-lists compatible versions; `2026.07` provides Python 3.12. Copy this into a new
-code cell above the lesson's first code cell and run it:
-
-```python
-import os
-from pathlib import Path
-import subprocess
-import sys
-
-if not (3, 11) <= sys.version_info[:2] < (3, 13):
-    raise RuntimeError("Select a Colab runtime with Python 3.11 or 3.12, then rerun this cell.")
-
-course_root = Path("/content/course-aiml-autoencoders")
-if not course_root.exists():
-    subprocess.run([
-        "git", "clone", "--depth", "1", "--branch", "main",
-        "https://github.com/tsilva/course-aiml-autoencoders.git", str(course_root),
-    ], check=True)
-os.chdir(course_root)
-sys.path.insert(0, str(course_root / "src"))
-
-import matplotlib, torch, torchvision, yaml
-from course_aiml_autoencoders.course import repository_root
-print("Ready:", repository_root())
-```
-
-Run the lesson cells in order, then open the next lesson from the table.
-Colab uses its preinstalled libraries; downloads and experiments disappear
-when the runtime resets. Local setup uses locked dependencies and keeps files
-on your machine.
-
-</details>
 
 ## Install
 
-Requires Python 3.11 or 3.12 and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.11–3.13 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 git clone https://github.com/tsilva/course-aiml-autoencoders.git

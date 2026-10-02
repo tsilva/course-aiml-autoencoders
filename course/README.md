@@ -8,9 +8,14 @@ baseline, learn continuous latents, then learn discrete tokens and their prior.
 
 You need basic Python, arrays/tensors, and the idea that training adjusts
 weights to reduce an error. Probability and gradient details arrive when they
-help explain behavior. Python 3.11 or 3.12 and uv are required.
+help explain behavior. Python 3.11–3.13 and uv are required.
 
-From the repository root:
+For Colab, use the [curriculum badges](../README.md#curriculum) and choose
+**Runtime → Run all**. Each notebook fetches the course code automatically;
+no extra setup cell is needed. Use its **Open in Colab** link for the next lesson.
+Colab's runtime storage is temporary.
+
+For local use, run from the repository root:
 
 ```bash
 uv sync --frozen
