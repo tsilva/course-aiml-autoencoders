@@ -109,6 +109,20 @@ Choose one extension that answers your next question:
   pixels and PCA, using identical splits.
 - Preserve a conclusion using [WORKSHEET.md](WORKSHEET.md) in `reports/`.
 
+<details>
+<summary>Commands for standalone experiments</summary>
+
+Run these from the repository root:
+
+```bash
+uv run --frozen course-aiml-autoencoders train recipes/smoke/fake-ae.yaml --device cpu
+uv run --frozen course-aiml-autoencoders train recipes/ae/ae-001-linear.yaml
+uv run --frozen course-aiml-autoencoders study studies/ae/ae-003-latent-capacity.yaml --seeds 0
+uv run --frozen course-aiml-autoencoders inspect <RUN_DIR>
+```
+
+</details>
+
 Keep studies (questions), recipes (configurations), reports (conclusions), and
 ignored runs (evidence) distinct. See [GLOSSARY.md](GLOSSARY.md) and
 [the experiment protocol](../docs/EXPERIMENT_PROTOCOL.md) when needed.
