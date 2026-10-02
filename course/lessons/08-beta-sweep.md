@@ -1,66 +1,46 @@
-# Lesson 08 — The VAE rate-distortion experiment
+# Lesson 08 — Change the price of information
 
-> Interactive lab: [open the generated notebook](../notebooks/08-rate-distortion.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/08-rate-distortion.py).
+**Learning objective:** interpret beta through a reconstruction/prior tradeoff.
 
-## Learning objective
+Beta is the price charged for moving a cloud away from the shared prior.
+Compare one familiar price with a higher one. Use the same architecture,
+split, optimizer, and training budget; change only beta.
 
-Observe directly that beta is not a generic “regularization strength.” It sets
-the exchange rate between reconstruction distortion and latent information.
+[Open the notebook](../notebooks/08-rate-distortion.ipynb). Run its cells in order for the experiment and evidence.
 
-## Predict the four regimes
+## Predict before running
 
-Before running, fill a table for beta values 0, 0.1, 1, and 4:
+If beta rises from 1 to 4, which should usually decrease: reconstruction error or raw KL?
 
-| Beta | Reconstruction | Raw KL | Active dimensions | Prior samples |
-|---:|---|---|---|---|
-| 0 | predict | predict | predict | predict |
-| 0.1 | predict | predict | predict | predict |
-| 1 | predict | predict | predict | predict |
-| 4 | predict | predict | predict | predict |
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-## Run the exploratory sweep
+Raw KL should tend to decrease. Reconstruction error may rise because retaining input-specific detail costs more. Optimization can violate the trend.
+</details>
 
-```bash
-uv run course-aiml-autoencoders study studies/vae/vae-001-beta-sweep.yaml --seeds 0
-```
+## Run the revealing experiment
 
-The study prints one run directory per variant and an aggregate summary path.
-Inspect each run:
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-```bash
-uv run course-aiml-autoencoders inspect <RUN_DIR>
-```
+## Advancement gate — transfer check
 
-## Build the rate-distortion view
+The beta-four model has a lower total loss but worse reconstruction. Is it the winner?
 
-For each beta, record:
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-- Best validation reconstruction loss: distortion
-- Best validation raw KL: rate
-- Active dimensions from `summary.json`
-- A short visual rating of prior samples
+The totals optimize differently weighted objectives. Compare named components and the behavior required by the task; lower total loss does not settle the choice.
+</details>
 
-Plot mentally or on paper: distortion on one axis and rate on the other. Higher
-beta should generally buy lower rate at the cost of higher distortion, though
-optimization noise and collapse can make the curve imperfect.
+<details>
+<summary>Optional: go deeper</summary>
 
-## Common interpretation errors
+For beta 0, 0.1, 1, and 4, run
+`uv run course-aiml-autoencoders study studies/vae/vae-001-beta-sweep.yaml --seeds 0`.
+Repeat only a meaningful finalist contrast across seeds if you want a durable
+numerical conclusion. Predict sample diversity as well as prior compatibility.
+</details>
 
-- Comparing total loss across beta values as if lower were universally better.
-  The objective itself changed.
-- Calling low KL “good regularization” without checking reconstructions.
-- Calling high KL “more expressive” without checking prior samples.
-- Choosing beta from one attractive sample grid.
-
-## Confirmation rule
-
-Pick only two beta values that support materially different conclusions, then
-repeat them over seeds. You may temporarily copy the study and remove the other
-variants, or rerun the full study if compute is unimportant.
-
-## Advancement gate
-
-Describe beta in rate–distortion language. Given a run with excellent
-reconstruction, high KL, and poor prior samples, diagnose the model without
-using the vague phrase “overfitting.”
+**Next:** [Lesson 09](../notebooks/09-collapse.ipynb).

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import copy
+import time
+from functools import partial
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -20,7 +22,7 @@ from course_aiml_autoencoders.models import build_model
 from course_aiml_autoencoders.objectives import build_objective
 from course_aiml_autoencoders.tracking import LocalTracker
 from course_aiml_autoencoders.training.checkpointing import save_checkpoint
-from course_aiml_autoencoders.training.evaluator import evaluate_epoch
+from course_aiml_autoencoders.training.evaluator import evaluate_epoch, evaluate_reconstruction_mse
 from course_aiml_autoencoders.training.seeding import resolve_device, seed_everything
 
 
@@ -75,6 +77,7 @@ def run_training(
     run_root: str | Path = "runs",
     device_override: str | None = None,
 ) -> TrainingResult:
+    started = time.perf_counter()
     validate_recipe(config)
     training = config["training"]
     seed = int(training.get("seed", 0))
@@ -101,6 +104,7 @@ def run_training(
     fixed_inputs = fixed_inputs.to(device)
     dataset_class_names = class_names(str(config["dataset"]["name"]))
     corruption_config = training.get("input_corruption")
+    evaluation_corruption = training.get("evaluation_corruption", corruption_config)
 
     best_loss = float("inf")
     best_epoch = 0
@@ -137,6 +141,13 @@ def run_training(
                 model, validation_loader, objective, device
             ).items()
         }
+        if evaluation_corruption:
+            noisy_metrics = evaluate_reconstruction_mse(
+                model, validation_loader, device,
+                transform=partial(corrupt_inputs, config=evaluation_corruption),
+            )
+            validation_metrics["validation/corrupted_mse"] = noisy_metrics["mse"]
+            validation_metrics["validation/noisy_input_mse"] = noisy_metrics["input_mse"]
         tracker.log(
             {"epoch": epoch, **train_metrics, **validation_metrics}
         )
@@ -175,9 +186,10 @@ def run_training(
         class_names=dataset_class_names,
         include_error=True,
     )
-    if corruption_config:
-        with torch.no_grad():
-            corrupted = corrupt_inputs(fixed_inputs, corruption_config)
+    if evaluation_corruption:
+        with torch.no_grad(), torch.random.fork_rng(devices=[]):
+            torch.random.default_generator.manual_seed(0)
+            corrupted = corrupt_inputs(fixed_inputs.cpu(), evaluation_corruption).to(device)
             denoised = model(corrupted).reconstruction
         save_reconstruction_grid(
             corrupted,
@@ -186,6 +198,7 @@ def run_training(
             labels=fixed_labels,
             class_names=dataset_class_names,
             include_error=True,
+            targets=fixed_inputs,
         )
 
     diagnostic_summary = generate_generative_diagnostics(
@@ -207,6 +220,7 @@ def run_training(
         "best_validation_metrics": best_validation_metrics,
         "checkpoint_selection_start_epoch": checkpoint_selection_start_epoch,
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
+        "elapsed_seconds": time.perf_counter() - started,
         **diagnostic_summary,
     }
     with (run_dir / "summary.json").open("w", encoding="utf-8") as handle:

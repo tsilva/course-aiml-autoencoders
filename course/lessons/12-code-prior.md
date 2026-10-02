@@ -1,91 +1,50 @@
-# Lesson 12 — Turning VQ-VAE tokens into a generative model
+# Lesson 12 — Learn which token arrangements belong together
 
-> Interactive lab: [open the generated notebook](../notebooks/12-code-prior.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/12-code-prior.py).
+**Learning objective:** separate learning a visual vocabulary from learning a sampling distribution.
 
-## Learning objective
+A vocabulary tells us what symbols mean. A prior learns which symbol should
+come next, given the symbols already present. Scanning the token grid row by
+row lets a small GRU learn these dependencies while the VQ encoder and decoder
+stay frozen. Training supplies the true previous tokens; sampling supplies the
+prior's own previous choices.
 
-Learn the separation between representation learning and prior modeling.
+[Open the notebook](../notebooks/12-code-prior.ipynb). Run its cells in order for the experiment and evidence.
 
-The VQ-VAE learns:
+## Predict before running
 
-$$
-x \rightarrow z_e \rightarrow k_{1:H,1:W} \rightarrow \hat{x}
-$$
+Will beating a uniform token predictor prove that the prior learned spatial dependencies?
 
-The prior learns:
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-$$
-p(k_1,\dots,k_N)=\prod_{i=1}^{N}p(k_i\mid k_{<i})
-$$
+No. Frequent symbols alone can beat uniform prediction. Compare with a training-frequency unigram baseline as well as inspecting generated arrangements.
+</details>
 
-where the spatial token grid is flattened in raster order.
+## Run the revealing experiment
 
-## Establish the baseline
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-Use the chosen VQ-VAE run from Lessons 10–11. Reopen
-`uniform-random-token-samples.png`. Those samples answer:
+## Advancement gate — transfer check
 
-> What if every code at every position is selected independently and uniformly?
+The prior improves dramatically, but generated images still lack fine detail. Which stage might be the bottleneck?
 
-The learned prior should answer:
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-> Which token arrangements resemble those produced by encoded training images?
+The VQ encoder/codebook/decoder may have discarded that detail. A better token distribution cannot recover information absent from the representation.
+</details>
 
-## Read the prior
+<details>
+<summary>Optional: go deeper</summary>
 
-- `src/course_aiml_autoencoders/models/prior.py`
-- `src/course_aiml_autoencoders/training/prior_trainer.py`
+Raster order gives the factorization
+$p(k_1,\ldots,k_N)=\prod_i p(k_i\mid k_{<i})$.
+Teacher forcing uses true history during training; sampling uses sampled
+history. The small GRU is chosen for clarity, not top-tier image quality.
+Temperature and larger priors are optional investigations; preserve the exact
+paired VQ checkpoint when comparing them.
+</details>
 
-The small GRU prior uses teacher forcing during training. Its input at position
-$i$ is the true previous token; its target is the current token. At sampling
-time it must consume its own sampled history.
-
-## Predict
-
-- Initial cross-entropy relative to $\log K$, the uniform-prior baseline.
-- Whether validation perplexity should approach codebook size or effective
-  token uncertainty.
-- How learned-prior samples should differ from uniform-token samples.
-- Why exposure error can accumulate during autoregressive sampling.
-
-## Run
-
-Use the exact best VQ checkpoint:
-
-```bash
-uv run course-aiml-autoencoders train-prior \
-  recipes/prior/prior-001-gru.yaml \
-  <VQ_RUN_DIR>/checkpoint-best.pt
-
-uv run course-aiml-autoencoders inspect <PRINTED_PRIOR_RUN_DIR>
-```
-
-Token extraction uses the frozen VQ-VAE. Only the prior is trained.
-
-## Inspect
-
-- Training versus validation cross-entropy.
-- Validation perplexity.
-- `learned-prior-samples.png`.
-- The referenced VQ checkpoint in `resolved-config.yaml`.
-
-Prior perplexity is a next-token prediction metric. Do not confuse it with
-VQ codebook usage perplexity:
-
-- Codebook perplexity: diversity of encoder assignments.
-- Prior perplexity: uncertainty remaining when predicting the next code from
-  previous codes.
-
-## Limitations
-
-The GRU scans a two-dimensional grid as a one-dimensional sequence and is
-intentionally small. PixelCNN or a Transformer can model spatial dependencies
-more naturally or at greater scale. This lesson is about the factorization and
-two-stage generative pipeline, not state-of-the-art samples.
-
-## Advancement gate
-
-Explain why the VQ encoder and decoder can remain frozen while training the
-prior, and why improving prior likelihood cannot repair information already
-discarded by the VQ-VAE.
+**Next:** [Lesson 13](../notebooks/13-synthesis.ipynb).

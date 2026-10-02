@@ -1,67 +1,49 @@
-# Lesson 07 — ELBO, KL pressure, and a sampleable prior
+# Lesson 07 — Give the clouds a shared address system
 
-> Interactive lab: [open the generated notebook](../notebooks/07-standard-vae.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/07-standard-vae.py).
+**Learning objective:** explain why prior pressure trades reconstruction detail for easier sampling.
 
-## Learning objective
+Imagine every input's cloud using a different, far-away address system.
+Random notes drawn near zero will miss many of them. KL pressure charges for
+moving or narrowing a cloud away from the shared standard-normal prior.
+That encourages overlap with places our sampler knows how to visit.
 
-Interpret the VAE objective as a rate–distortion tradeoff and inspect whether
-the prior is becoming usable.
-
-The implemented minimization objective is:
-
-$$
-L =
-\underbrace{-\mathbb E_{q(z|x)}[\log p_\theta(x|z)]}_{\text{distortion}}
-+
-\beta\underbrace{D_{KL}(q_\phi(z|x)\|p(z))}_{\text{rate}}
-$$
-
-with $p(z)=N(0,I)$, Bernoulli observation likelihood, and $\beta=1$.
+[Open the notebook](../notebooks/07-standard-vae.ipynb). Run its cells in order for the experiment and evidence.
 
 ## Predict before running
 
-Relative to Lesson 06:
+Compared with beta zero, should prior pressure improve every reconstruction and every sample?
 
-- Will reconstruction improve or worsen?
-- Will raw KL rise or fall?
-- Will fewer dimensions be active?
-- Will random-prior samples become more coherent?
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-State the causal mechanism, not only the direction.
+No. It can improve prior compatibility while sacrificing reconstruction information. Too much pressure can make clouds lose their input-specific information.
+</details>
 
-## Run
+## Run the revealing experiment
 
-```bash
-uv run course-aiml-autoencoders train recipes/vae/vae-001-basic.yaml
-uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
-```
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-## Read the metrics correctly
+## Advancement gate — transfer check
 
-- `reconstruction_loss`: summed binary cross-entropy per example.
-- `kl_loss`: raw information rate in nats per example.
-- `effective_kl_loss`: the value used before beta; it differs from raw KL only
-  when free bits are enabled.
-- `weighted_kl_loss`: contribution to the optimized total.
-- `beta`: pressure applied in that epoch.
+All input clouds match the prior perfectly, and every reconstruction looks alike. Is zero KL a success?
 
-The total loss decreasing does not tell you which side of the tradeoff changed.
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-## Inspect the geometry
+It indicates input information was lost: the decoder is not reconstructing distinct inputs. Check latent dependence and reconstruction evidence, not KL alone.
+</details>
 
-- `kl-per-dimension.png`: dimensions above the red threshold are counted as
-  active.
-- `latent-space.png`: look for a more compact, continuous aggregate geometry.
-- `interpolation.png`: inspect continuity.
-- `random-latent-samples.png`: compare directly with Lesson 06.
+<details>
+<summary>Optional: go deeper</summary>
 
-Do not expect perfect images from a small MLP VAE. The question is whether
-samples are more consistent with the data distribution, not whether they are
-photorealistic.
+The beta-one negative ELBO combines expected negative log likelihood with
+$D_{KL}(q(z|x)\|p(z))$. Beta changes their relative price.
+Average posterior-to-prior KL includes input information **and** aggregate
+posterior mismatch; it is not an exact measurement of mutual information.
+Nonzero per-dimension KL is a diagnostic, not proof a coordinate carries useful
+input information. See the [objective reference](../lessons/07-standard-vae.md).
+</details>
 
-## Advancement gate
-
-Explain why lowering KL all the way to zero is not necessarily success. Include
-the phrases “posterior collapse,” “decoder ignores $z$,” and “reconstruction
-evidence.”
+**Next:** [Lesson 08](../notebooks/08-rate-distortion.ipynb).

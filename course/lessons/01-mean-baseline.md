@@ -1,62 +1,45 @@
-# Lesson 01 — Reconstruction and the mean-image baseline
+# Lesson 01 — Give reconstruction a reference
 
-> Interactive lab: [open the generated notebook](../notebooks/01-mean-baseline.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/01-mean-baseline.py).
+**Learning objective:** explain what MSE notices and why reconstruction needs a baseline.
 
-## Learning objective
+MSE is a pixel accountant: it squares each brightness mismatch, then averages.
+It knows locations and numbers, not garments. A shifted picture can score poorly
+even when you recognize it. First use a tiny symbol; no training is needed.
 
-Learn why a loss number becomes meaningful only relative to a baseline.
-
-No model is trained in this lesson. It constructs deliberately
-input-independent predictors, computes them from training data, and evaluates
-them on validation data.
-
-For image $x$ and reconstruction $\hat{x}$, the mean-squared error is:
-
-$$
-\operatorname{MSE}(x,\hat{x}) =
-\frac{1}{CHW}\sum_{c,h,w}(x_{chw}-\hat{x}_{chw})^2
-$$
-
-Under MSE, a model that ignores its input can minimize expected loss by
-predicting the mean training image.
+[Open the notebook](../notebooks/01-mean-baseline.ipynb). Run its cells in order for the experiment and evidence.
 
 ## Predict before running
 
-Write down:
+Will shifting a symbol one pixel cost more than deleting one bright pixel?
 
-- What the Fashion-MNIST mean image will resemble.
-- Whether different classes will be recognizable.
-- Why this baseline can achieve a nonterrible MSE despite learning no
-  input-dependent representation.
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-## Run
+Often yes: a shift creates errors where the symbol used to be and where it moves. Pixel agreement differs from semantic similarity.
+</details>
 
-```bash
-uv run course-aiml-autoencoders baseline recipes/ae/ae-001-linear.yaml
-uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
-```
+## Run the revealing experiment
 
-## Inspect
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-- `summary.json`: record `validation_mse`.
-- `figures/mean-image-baseline.png`: originals are on top; the same mean
-  prediction appears below every image.
+## Advancement gate — transfer check
 
-This number is the first reference point. A trained autoencoder that cannot
-beat it has not demonstrated useful reconstruction.
+A model predicts the same blurry image for every garment and earns a low MSE. What comparison would expose the problem?
 
-## Think experimentally
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-MSE is sensitive to pixel distance, not semantic correctness. A blurry average
-can score better than a sharp image shifted one pixel. Therefore:
+Compare with the mean training image on the same held-out examples. Check whether changing the input changes the reconstruction.
+</details>
 
-- Numeric reconstruction error answers a narrow pixel-level question.
-- Fixed reconstruction grids expose blur, lost shape, and class confusion.
-- Later generative models need additional diagnostics.
+<details>
+<summary>Optional: go deeper</summary>
 
-## Advancement gate
+Under squared error, averaging minimizes the sum of deviations at each pixel.
+MSE is useful for aligned pixel fidelity; it is sensitive to shifts and can
+reward blur. Use a task-specific measure when asking a different question.
+</details>
 
-Explain why “validation MSE = 0.05” is not interpretable without the input
-range, reduction convention, dataset, and baseline. Record the baseline in a
-worksheet for use in Lesson 02.
+**Next:** [Lesson 02](../notebooks/02-linear-ae.ipynb).

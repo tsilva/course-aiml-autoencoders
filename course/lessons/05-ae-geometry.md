@@ -1,68 +1,46 @@
-# Lesson 05 — AE latent geometry and the sampling failure
+# Lesson 05 — Reconstruction does not choose new codes
 
-> Interactive lab: [open the generated notebook](../notebooks/05-ae-geometry.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/05-ae-geometry.py).
+**Learning objective:** distinguish interpolation from sampling.
 
-## Learning objective
+An AE learns to read notes written by its encoder. Inventing random notes
+asks the decoder to read a distribution it was never trained to expect.
+A smooth path between two valid notes is a different claim from a reliable
+method for drawing new notes.
 
-Distinguish three claims that are often conflated:
+[Open the notebook](../notebooks/05-ae-geometry.ipynb). Run its cells in order for the experiment and evidence.
 
-1. Encoded training examples reconstruct well.
-2. Lines between encoded examples decode plausibly.
-3. Samples from a simple known distribution decode plausibly.
+## Predict before running
 
-An ordinary AE optimizes only the first claim.
+Should a smooth interpolation guarantee that random standard-normal codes produce plausible garments?
 
-## Use an existing run
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-Choose your best nonlinear AE from Lessons 03–04:
+No. Continuity gives smooth changes; it says nothing about how probable the visited codes are. The AE has not matched its encoded distribution to a standard normal.
+</details>
 
-```bash
-uv run course-aiml-autoencoders inspect <AE_RUN_DIR>
-```
+## Run the revealing experiment
 
-Open these together:
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-- `reconstructions.png`
-- `latent-space.png`
-- `interpolation.png`
-- `random-latent-samples.png`
+## Advancement gate — transfer check
 
-## Interrogate the figures
+You rescale every AE latent coordinate to unit variance. Is generation now solved?
 
-For the latent scatter:
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-- Are class colors locally clustered?
-- Are there empty regions?
-- Remember that latents larger than two dimensions are projected with PCA; the
-  picture can hide separation in discarded dimensions.
+No. Matching coordinate scales does not match correlations, shapes, or low-density holes. Sampling requires a distribution that models the joint encoded data.
+</details>
 
-For interpolation:
+<details>
+<summary>Optional: go deeper</summary>
 
-- Do endpoints match recognizable examples?
-- Are middle points plausible garments or smooth pixel mixtures?
-- A single attractive interpolation is qualitative evidence, not a global
-  statement about latent geometry.
+Plot a PCA projection of encoded validation examples, colored by class.
+A projection helps reveal structure but cannot map every hole in a
+higher-dimensional space. See the [geometry reference](../lessons/05-ae-geometry.md).
+</details>
 
-For random latent samples:
-
-- The tool draws $z\sim N(0,I)$.
-- The AE was never told that encoded examples should follow $N(0,I)$.
-- The scale, orientation, density, and holes of the encoded distribution are
-  therefore unconstrained.
-
-## The motivating failure
-
-An AE gives us $f(x)$ and $g(z)$, but not a tractable model of
-$p(z)$. Sampling a random vector is an out-of-distribution query to the
-decoder.
-
-This is the exact problem the next model will address. The VAE will trade some
-reconstruction freedom for a posterior that is regularized toward a known
-prior.
-
-## Advancement gate
-
-Explain why smooth interpolation does not imply valid random sampling. Your
-answer must use the concepts of occupied latent regions, probability density,
-and training constraints.
+**Next:** [Lesson 06](../notebooks/06-vae-control.ipynb).

@@ -7,8 +7,9 @@
 Autoencoders: From Bottlenecks to Discrete Latents is an executable Python
 course for learners and ML practitioners who want to understand AEs, VAEs, and
 VQ-VAEs through evidence as well as theory. Work through 14 Jupyter lessons,
-predict model behavior before each experiment, and use metrics,
-reconstructions, and diagnostics to explain what changed.
+make one prediction, inspect one small experiment, and answer one transfer
+check per lesson. Short CPU runs are reused automatically; derivations, full
+sweeps, and research reports are optional.
 
 The curriculum progresses from deterministic bottlenecks to continuous and
 discrete latent spaces. Recipes define complete runs, studies vary one declared
@@ -53,8 +54,13 @@ uv run --frozen python -m pytest                                          # run 
   best checkpoint, summary, diagnostics, and figures needed to inspect a claim.
 - Canonical lessons live in Jupytext sources. Generated notebooks are
   deterministic and output-free; training evidence belongs in `runs/`.
-- Use one seed while exploring and multiple seeds before promoting a close
-  numerical result into a report.
+- The core path uses up to eight CPU epochs on 2,048 training and 512 validation
+  images, with exact run reuse and measured timings. Set the notebook profile
+  to `full` for the original recipes.
+- Validation comes from a fixed holdout of the training split; the official test
+  split is reserved for optional final confirmation.
+- Use one seed while exploring and multiple seeds only before promoting an
+  important close numerical result into an optional report.
 - See the [learning roadmap](docs/ROADMAP.md),
   [experiment protocol](docs/EXPERIMENT_PROTOCOL.md), and
   [troubleshooting guide](course/TROUBLESHOOTING.md) for deeper guidance.

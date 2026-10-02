@@ -1,7 +1,7 @@
 id: ae/ae-004-denoising
 question: Does training on corrupted inputs improve reconstruction of noisy images?
 hypothesis: The denoising AE will remove Gaussian noise, with a small clean-image fidelity cost.
-primary_metric: validation/reconstruction_loss
+primary_metric: validation/corrupted_mse
 baseline: recipes/ae/ae-003-denoising.yaml
 controlled:
   - dataset split
@@ -9,6 +9,7 @@ controlled:
   - latent dimension
   - optimizer
   - training duration
+  - evaluation corruption and noise seed
 variants:
   - name: clean-input
     overrides:
@@ -21,6 +22,8 @@ variants:
         clamp: true
 seeds: [0]
 evidence:
+  - validation/corrupted_mse
+  - validation/noisy_input_mse
   - validation/reconstruction_loss
   - corrupted-input-reconstructions.png
   - clean reconstructions.png

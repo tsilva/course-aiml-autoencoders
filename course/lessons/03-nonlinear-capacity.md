@@ -1,69 +1,49 @@
-# Lesson 03 — Nonlinearity and bottleneck capacity
+# Lesson 03 — Let the reconstruction sheet bend
 
-> Interactive lab: [open the generated notebook](../notebooks/03-capacity.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/03-capacity.py).
+**Learning objective:** separate nonlinear geometry from bottleneck size.
 
-## Learning objective
+A linear decoder builds everything from one flat set of directions. Nonlinear
+layers let the mapping bend and respond differently in different regions.
+Keep the eight-number bottleneck fixed and change only the hidden-layer setup.
+The larger parameter count remains a confound; this tests two architectures,
+not the isolated effect of an activation function.
 
-Separate two sources of model capacity:
+[Open the notebook](../notebooks/03-capacity.ipynb). Run its cells in order for the experiment and evidence.
 
-1. The geometry representable by nonlinear transformations.
-2. The amount of information that fits through the latent bottleneck.
+## Predict before running
 
-## Experiment A: nonlinearity
+With eight sliders in both models, can nonlinear layers still improve reconstruction?
 
-Predict whether adding hidden ReLU layers at the same latent dimension will
-lower validation MSE. Also predict whether the comparison is perfectly fair:
-the nonlinear model has many more parameters.
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-```bash
-uv run course-aiml-autoencoders study studies/ae/ae-002-nonlinearity.yaml --seeds 0
-```
+Yes: the mapping can represent more complex structure at the same latent dimension. Improvement is empirical, and added parameters also contribute.
+</details>
 
-Open the printed study summary and both run directories. Compare:
+## Run the revealing experiment
 
-- Parameter count
-- Validation reconstruction MSE
-- Reconstruction grids
-- Latent scatter
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-The experiment isolates architecture choice but not parameter count. Say that
-explicitly in the worksheet.
+## Advancement gate — transfer check
 
-## Experiment B: bottleneck size
+A 128-dimensional model beats an eight-dimensional one. Is it the better representation?
 
-Before running, sketch expected validation MSE against latent sizes
-2, 8, 32, and 128.
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-```bash
-uv run course-aiml-autoencoders study studies/ae/ae-003-latent-capacity.yaml --seeds 0
-```
+It is better on the measured reconstruction task. Compression, robustness, generation, and downstream usefulness still require separate evidence.
+</details>
 
-Look for diminishing returns rather than assuming every additional latent
-dimension is equally valuable. Inspect the latent-2 run directly: because its
-latent is already two-dimensional, the scatter plot is not a PCA projection.
+<details>
+<summary>Optional: go deeper</summary>
 
-## Interpret carefully
+Run the full latent-size sweep:
+`uv run course-aiml-autoencoders study studies/ae/ae-003-latent-capacity.yaml --seeds 0`.
+Vary only latent size. Expect possible diminishing returns; inspect the result
+before concluding. The original nonlinearity study is also available in
+`studies/ae/ae-002-nonlinearity.yaml`.
+</details>
 
-- Lower reconstruction error means less pixel information was discarded.
-- It does not prove the representation is more useful for classification,
-  disentangled, robust, or sampleable.
-- A large or overcomplete latent can make the task close to identity copying.
-- A tiny latent can impose useful abstraction or simply destroy information.
-
-## Optional confirmation
-
-After choosing the two most scientifically interesting variants:
-
-```bash
-uv run course-aiml-autoencoders study studies/ae/ae-002-nonlinearity.yaml --seeds 0 1 2
-```
-
-Do not repeat every variant automatically. Confirm the comparison that would
-change your conclusion.
-
-## Advancement gate
-
-Explain why “bigger latent is better” is incomplete. Your answer must mention
-the task objective, compression, downstream usefulness, and the danger of an
-identity mapping.
+**Next:** [Lesson 04](../notebooks/04-regularized-ae.ipynb).

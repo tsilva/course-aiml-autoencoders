@@ -1,47 +1,34 @@
 # Learning Roadmap
 
-This file is the high-level research map. The runnable teaching sequence,
-commands, questions, and advancement gates live in
-[`course/README.md`](../course/README.md).
+The core path is optimized for learning per minute. The runnable sequence and
+short-run defaults live in [the course guide](../course/README.md).
 
-## Stage 0 — Laboratory
+## Core: one revealing contrast at a time
 
-- Validate data ranges and preprocessing.
-- Establish a mean-image reconstruction baseline.
-- Overfit a tiny fake dataset.
-- Lock the fixed validation grid and artifact contract.
+1. Inspect an untrained encoder/bottleneck/decoder on synthetic shapes.
+2. Understand pixel error and compare input-ignoring reconstruction baselines.
+3. Train an eight-dimensional linear AE, then change its hidden-layer setup.
+4. Change training corruption and evaluate noisy-input recovery against clean targets.
+5. Distinguish smooth AE interpolation from a learned sampling distribution.
+6. Inspect stochastic clouds, then compare beta-zero and beta-one VAEs.
+7. Increase beta and test latent dependence with a deliberately fixed-note control.
+8. Inspect quantization, global symbol usage, and a learned token prior.
+9. Choose a mechanism for a task and diagnose an unfamiliar result.
 
-## Stage 1 — Autoencoders
+The default notebooks reuse exact matching short CPU runs. Tiny visible probes
+come before training. Mathematical derivations, larger sweeps, reports, and
+multi-seed confirmation are optional.
 
-1. Linear undercomplete AE.
-2. Nonlinear AE with matched latent capacity.
-3. Latent-size rate–distortion sweep.
-4. Overcomplete AE and the identity-mapping failure.
-5. Denoising and sparse AEs.
-6. Convolutional AE.
-7. Interpolation and random-latent decoding.
+## Optional investigations
 
-## Stage 2 — Variational autoencoders
+Pick a question rather than completing this entire list:
 
-1. VAE with KL disabled as an implementation control.
-2. Standard VAE.
-3. Beta sweep.
-4. Prior samples and latent traversals.
-5. Per-dimension KL and active units.
-6. Posterior collapse.
-7. KL warm-up and free bits.
+- AE latent-size sweep, decoder directions, PCA geometry, and identity copying.
+- Sparse activity and its scale ambiguity; additional corruption types.
+- Full beta sweep, latent traversals, warm-up, and free bits.
+- Codebook-size and commitment sweeps; EMA and dead-code recovery are future work.
+- Frozen-latent classification or retrieval against raw pixels and PCA.
+- An important two-variant comparison over multiple seeds and final test confirmation.
 
-## Stage 3 — VQ-VAE
-
-1. Nearest-neighbor quantization and straight-through gradients.
-2. Codebook-size and embedding-size sweeps.
-3. Commitment-weight sweep.
-4. Usage, perplexity, and dead-code diagnostics.
-5. Gradient versus EMA codebook updates.
-6. Uniform token samples versus a learned autoregressive prior.
-
-## Stage 4 — Controlled comparison
-
-Compare matched-capacity AE, VAE, and VQ-VAE models using reconstruction,
-latent utilization, linear probes, interpolation, robustness, and sample
-quality. Do not treat reconstruction error as a complete generative metric.
+Convolutional AE variants, EMA codebook updates, larger token priors, and
+additional downstream probes are extension ideas, not implemented prerequisites.

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import math
+import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +17,7 @@ from course_aiml_autoencoders.diagnostics import save_image_grid
 from course_aiml_autoencoders.models import build_model
 from course_aiml_autoencoders.models.prior import AutoregressiveCodePrior
 from course_aiml_autoencoders.training.seeding import resolve_device, seed_everything
+from course_aiml_autoencoders.training.trainer import _run_directory
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ def run_code_prior_training(
     run_root: str | Path = "runs",
     device_override: str | None = None,
 ) -> PriorTrainingResult:
+    started = time.perf_counter()
     required = {"id", "model", "training"}
     missing = sorted(required - prior_config.keys())
     if missing:
@@ -116,6 +118,9 @@ def run_code_prior_training(
     )
 
     codebook_size = vqvae.quantizer.codebook.num_embeddings
+    counts = torch.bincount(train_tokens.flatten(), minlength=codebook_size).float() + 1
+    token_probabilities = counts / counts.sum()
+    unigram_cross_entropy = float(-token_probabilities[validation_tokens].log().mean())
     prior = AutoregressiveCodePrior(
         codebook_size=codebook_size,
         embedding_dim=int(prior_config["model"].get("embedding_dim", 64)),
@@ -125,9 +130,8 @@ def run_code_prior_training(
         prior.parameters(), lr=float(training.get("learning_rate", 1e-3))
     )
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_dir = Path(run_root) / str(prior_config["id"]) / timestamp
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = _run_directory(Path(run_root), str(prior_config["id"]), seed)
+    run_dir.mkdir(parents=True)
     resolved = {
         **prior_config,
         "vq_checkpoint": str(checkpoint_path),
@@ -216,6 +220,9 @@ def run_code_prior_training(
         "codebook_size": codebook_size,
         "token_map_shape": list(spatial_shape),
         "parameter_count": sum(parameter.numel() for parameter in prior.parameters()),
+        "uniform_cross_entropy": math.log(codebook_size),
+        "unigram_cross_entropy": unigram_cross_entropy,
+        "elapsed_seconds": time.perf_counter() - started,
         "device": str(device),
     }
     with (run_dir / "summary.json").open("w", encoding="utf-8") as handle:
@@ -225,4 +232,3 @@ def run_code_prior_training(
         best_validation_loss=best_loss,
         best_validation_perplexity=perplexity,
     )
-

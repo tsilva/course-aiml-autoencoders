@@ -182,9 +182,10 @@ def _course(args: argparse.Namespace) -> None:
         for lesson in lessons:
             print(
                 f"{lesson['id']:>2}  {lesson['title']} "
-                f"({lesson['estimated_minutes']} min)"
+                f"(~{lesson['estimated_minutes']} min learning + compute)"
             )
-        print("\nUse `uv run course-aiml-autoencoders course <id>` to open a lesson.")
+        print(f"\n{manifest.get('time_estimate_scope', '')}")
+        print("\nUse `uv run course-aiml-autoencoders course <id>` to show its guide.")
         return
 
     lesson = next(

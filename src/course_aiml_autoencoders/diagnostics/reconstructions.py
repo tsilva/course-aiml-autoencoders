@@ -39,12 +39,17 @@ def plot_reconstruction_grid(
     class_names: Sequence[str] | None = None,
     max_items: int = 8,
     include_error: bool = False,
+    targets: Tensor | None = None,
 ) -> Figure:
     """Create an input/reconstruction comparison for files or notebooks."""
 
-    per_item_error = per_example_mse(inputs, reconstructions)
+    targets = inputs if targets is None else targets
+    if inputs.shape != targets.shape:
+        raise ValueError("Inputs and targets must have the same shape")
+    per_item_error = per_example_mse(targets, reconstructions)
     count = min(max_items, inputs.shape[0])
-    rows = 3 if include_error else 2
+    show_targets = targets is not inputs
+    rows = 2 + int(show_targets) + int(include_error)
     figure, axes = pyplot.subplots(
         rows,
         count,
@@ -52,8 +57,12 @@ def plot_reconstruction_grid(
         squeeze=False,
     )
     for index in range(count):
-        _show_tensor_image(axes[0, index], inputs[index])
-        _show_tensor_image(axes[1, index], reconstructions[index])
+        if show_targets:
+            _show_tensor_image(axes[0, index], targets[index])
+        input_row = int(show_targets)
+        reconstruction_row = input_row + 1
+        _show_tensor_image(axes[input_row, index], inputs[index])
+        _show_tensor_image(axes[reconstruction_row, index], reconstructions[index])
         title = f"MSE {per_item_error[index]:.4f}"
         if labels is not None:
             label = int(labels[index])
@@ -65,28 +74,38 @@ def plot_reconstruction_grid(
             title = f"{name}\n{title}"
         axes[0, index].set_title(title, fontsize=9)
         if include_error:
-            error = (inputs[index] - reconstructions[index]).square()
+            error = (targets[index] - reconstructions[index]).square()
             if error.shape[0] == 1:
-                axes[2, index].imshow(
+                axes[-1, index].imshow(
                     error.squeeze(0).detach().cpu().numpy(),
                     cmap="magma",
                     vmin=0,
                     vmax=1,
                 )
             else:
-                axes[2, index].imshow(
+                axes[-1, index].imshow(
                     error.mean(dim=0).detach().cpu().numpy(),
                     cmap="magma",
                     vmin=0,
                     vmax=1,
                 )
-            axes[2, index].axis("off")
+            axes[-1, index].axis("off")
 
-    axes[0, 0].set_ylabel("Input")
-    axes[1, 0].set_ylabel("Reconstruction")
+    if show_targets:
+        axes[0, 0].set_ylabel("Clean target")
+    axes[int(show_targets), 0].set_ylabel("Noisy input" if show_targets else "Input")
+    axes[int(show_targets) + 1, 0].set_ylabel("Reconstruction")
     if include_error:
-        axes[2, 0].set_ylabel("Squared error")
-    figure.suptitle("Inputs and reconstructions")
+        axes[-1, 0].set_ylabel("Clean-target error" if show_targets else "Squared error")
+    # axis('off') hides axis labels, so render the row labels as visible text too.
+    for row in range(rows):
+        axes[row, 0].text(
+            -0.08, 0.5, axes[row, 0].get_ylabel(),
+            transform=axes[row, 0].transAxes, rotation=90,
+            va="center", ha="right", fontsize=10,
+        )
+    figure.suptitle("Clean targets, noisy inputs, and reconstructions" if show_targets
+                   else "Inputs and reconstructions")
     figure.tight_layout()
     return figure
 
@@ -130,6 +149,7 @@ def save_reconstruction_grid(
     labels: Tensor | None = None,
     class_names: Sequence[str] | None = None,
     include_error: bool = False,
+    targets: Tensor | None = None,
 ) -> None:
     figure = plot_reconstruction_grid(
         inputs,
@@ -138,6 +158,7 @@ def save_reconstruction_grid(
         class_names=class_names,
         max_items=max_items,
         include_error=include_error,
+        targets=targets,
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=140)
