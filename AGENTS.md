@@ -24,3 +24,9 @@
 - Keep the CLI entry-point name identical to the project distribution name.
 - Preserve `[tool.uv]` supply-chain constraints and the seven-day release delay.
 - Do not commit datasets, raw run directories, or checkpoints.
+
+## Project Skills
+
+- Use [validate-colab-notebooks](.agents/skills/validate-colab-notebooks/SKILL.md)
+  when verifying that all course notebooks, or a specified lesson, run completely
+  in Google Colab and produce the expected numerical and visual learning results.
