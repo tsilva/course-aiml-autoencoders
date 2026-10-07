@@ -34,7 +34,6 @@ In Colab, select **Runtime → Run all**. The first cell fetches the course code
 and sets up imports automatically. Downloads and experiments disappear when
 the runtime resets.
 
-
 ## Install
 
 Requires Python 3.11–3.13 and [uv](https://docs.astral.sh/uv/).
