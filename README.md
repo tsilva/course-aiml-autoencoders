@@ -1,8 +1,10 @@
-<div align="center">
+<p align="center">
   <img src="./logo.png" alt="AI/ML Course: Autoencoders" width="480" />
-
-  **🧪 Learn autoencoders by predicting, running, and inspecting experiments. 🧪**
-</div>
+  <br />
+  <!-- repo-tagline:start -->
+  <strong>🧪 Learn autoencoders by predicting, running, and inspecting experiments 🧪</strong>
+  <!-- repo-tagline:end -->
+</p>
 
 An executable Python course on autoencoders, VAEs, and VQ-VAEs for learners
 and ML practitioners. Work through 14 notebooks: predict a result, inspect a
