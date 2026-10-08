@@ -1,77 +1,48 @@
-# Lesson 09 — Posterior collapse, warm-up, and free bits
+# Lesson 09 — Check whether the decoder uses the note
 
-> Interactive lab: [open the generated notebook](../notebooks/09-collapse.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/09-collapse.py).
+**Learning objective:** diagnose latent dependence before trying collapse remedies.
 
-## Learning objective
+A decoder can appear to work while ignoring the note. To test dependence,
+compare normal reconstruction with decoding one fixed zero note for every
+input. The fixed-note output is a deliberately broken control: it illustrates
+loss of information and does not prove the trained model collapsed.
 
-Recognize when the VAE decoder ignores its latent input and understand two
-interventions that alter KL optimization dynamics.
+[Open the notebook](../notebooks/09-collapse.ipynb). Run its cells in order for the experiment and evidence.
 
-## Collapse signature
+## Predict before running
 
-Posterior collapse typically combines:
+If every input receives the same note, can the decoder reconstruct their different details?
 
-- KL near zero
-- Few or zero active dimensions
-- Similar posterior parameters across inputs
-- Reconstructions that rely on decoder bias or autoregressive context
-- Prior samples that may be consistent but uninformative
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-Low KL alone is not enough; inspect reconstruction and active dimensions.
+A deterministic decoder receives identical inputs and produces identical outputs. Normal reconstructions should preserve more input-specific information if the learned latent is used.
+</details>
 
-## Interventions
+## Run the revealing experiment
 
-### KL warm-up
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-Increase beta from zero to its target over the first ten epochs. Early training
-can learn to use $z$ before full prior pressure arrives.
+## Advancement gate — transfer check
 
-### Free bits
+Run A has low KL and distinct, accurate reconstructions; Run B has low KL and constant reconstructions. Which deserves a collapse investigation?
 
-For each latent dimension, optimize:
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-$$
-\max(\lambda, KL_j)
-$$
+Run B. In A, investigate whether little information is being used efficiently. Confirm B with latent interventions and posterior variation; the shared low KL number is not enough.
+</details>
 
-Below $\lambda$, the KL term is constant and supplies no gradient pushing that
-dimension closer to zero. This does not force the model to use the dimension;
-it removes the reward for compressing it below the allowance.
+<details>
+<summary>Optional: go deeper</summary>
 
-## Predict and run
+Free bits optimizes a per-dimension floor $\max(\lambda, KL_j)$.
+Below the floor, the compression term supplies no further gradient; it does not
+force a dimension to encode information. Raw KL and optimized effective KL can
+differ. Run `studies/vae/vae-002-collapse-remedies.yaml` to compare immediate KL,
+warm-up, and free bits. The small decoder may not collapse: report that honestly.
+</details>
 
-Predict which method will retain the most active dimensions and which may have
-the best reconstruction.
-
-```bash
-uv run course-aiml-autoencoders study studies/vae/vae-002-collapse-remedies.yaml --seeds 0
-```
-
-Inspect:
-
-- Beta history in `metrics.jsonl`
-- Raw versus effective KL
-- `kl-per-dimension.png`
-- `summary.json` active dimension count
-- Reconstructions and prior samples
-
-With free bits, effective KL can exceed raw KL because the objective includes a
-constant floor. Always diagnose activity from raw KL.
-
-## Important limitation
-
-This small Fashion-MNIST MLP may not exhibit catastrophic collapse. A negative
-result is still informative: interventions cannot be credited with “fixing”
-collapse unless the baseline actually collapsed.
-
-## Advancement gate
-
-Given three hypothetical runs:
-
-- KL 0.02, strong reconstructions
-- KL 0.02, constant reconstructions
-- KL 15, strong reconstructions but poor prior samples
-
-explain why they require different diagnoses despite sharing some metric
-features.
+**Next:** [Lesson 10](../notebooks/10-vqvae.ipynb).

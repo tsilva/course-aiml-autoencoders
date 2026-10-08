@@ -1,5 +1,5 @@
 {
-  "project_name": "Autoencoders: From Bottlenecks to Discrete Latents",
+  "project_name": "AI/ML Course: Autoencoders",
   "assets": [
     {
       "key": "logo-1024",
@@ -16,8 +16,8 @@
     {
       "key": "root-logo",
       "path": "../logo.png",
-      "width": 1696,
-      "height": 802
+      "width": 1021,
+      "height": 1024
     },
     {
       "key": "favicon-16",

@@ -12,161 +12,141 @@
 # ---
 
 # %% [markdown]
-# # Lesson 08 — The VAE rate–distortion experiment
+# # Lesson 08 — Change the price of information
 #
-# **Learning objective:** observe directly how beta prices latent information
-# against reconstruction distortion.
+# **Learning objective:** interpret beta through a reconstruction/prior tradeoff.
 #
-# Beta is not a generic “regularization strength.” It sets the exchange rate
-# between reconstruction distortion and latent information.
+# Beta is the price charged for moving a cloud away from the shared prior.
+# Compare one familiar price with a higher one. Use the same architecture,
+# split, optimizer, and training budget; change only beta.
+
+# %% [markdown]
+# ## Setup
+#
+# Run this cell first. In Colab it fetches the course code automatically;
+# locally it uses your checkout. The lessons use short CPU experiments.
 
 # %%
-import json
+import os
+from pathlib import Path
 import subprocess
 import sys
 
-import matplotlib.pyplot as plt
-from IPython.display import Image, display
+# Find an existing checkout before fetching one in a fresh Colab session.
+_start = Path.cwd().resolve()
+_course_root = next((
+    candidate for candidate in (_start, *_start.parents)
+    if (candidate / "course/curriculum.yaml").is_file()
+    and (candidate / "src/course_aiml_autoencoders").is_dir()
+), None)
+if _course_root is None:
+    try:
+        import google.colab
+    except ImportError as error:
+        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
+    _course_root = _start / "course-aiml-autoencoders"
+    if not _course_root.exists():
+        subprocess.run([
+            "git", "clone", "--depth", "1", "--branch", "main",
+            "https://github.com/tsilva/course-aiml-autoencoders.git",
+            str(_course_root),
+        ], check=True)
+    if not (_course_root / "course/curriculum.yaml").is_file():
+        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
+os.chdir(_course_root)
+_course_src = str(_course_root / "src")
+if _course_src not in sys.path:
+    sys.path.insert(0, _course_src)
+print("Course ready:", _course_root)
 
-from course_aiml_autoencoders.config import load_yaml
-from course_aiml_autoencoders.course import repository_root
+# %%
+import matplotlib.pyplot as plt
+import torch
+from IPython.display import Image, display
+from course_aiml_autoencoders.config import load_yaml, with_overrides
+from course_aiml_autoencoders.course import (
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
+)
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
+)
 
 ROOT = repository_root()
-study_path = ROOT / "studies/vae/vae-001-beta-sweep.yaml"
-study = load_yaml(study_path)
-study
+torch.manual_seed(0)
+PROFILE = "quick"
 
 # %% [markdown]
-# ## Predict four regimes
+# The default uses eight CPU epochs on 2,048 training images and 512 held-out
+# images. A matching completed run is reused automatically; its exact path and
+# measured duration are printed. These short runs expose mechanisms, not settled
+# rankings. The first Fashion-MNIST lesson downloads the dataset once.
 #
-# Mentally predict this table before running, then expand the reasoning check:
+# Set `PROFILE = "full"` for the original training budget; `learn(..., rerun=True)`
+# creates fresh evidence. You can return to the prediction while training runs.
+
+# %% [markdown]
+# ## Predict before running
 #
-# | Beta | Reconstruction | Raw KL | Active dimensions | Prior samples |
-# |---:|---|---|---|---|
-# | 0 | | | | |
-# | 0.1 | | | | |
-# | 1 | | | | |
-# | 4 | | | | |
-#
-# For each prediction, state the causal path from beta to encoder behavior.
+# If beta rises from 1 to 4, which should usually decrease: reconstruction error or raw KL?
 #
 # <details>
-# <summary>Reveal the expected qualitative trend</summary>
+# <summary>Reveal the expected reasoning</summary>
 #
-# | Beta | Reconstruction | Raw KL | Active dimensions | Prior samples |
-# |---:|---|---|---|---|
-# | 0 | strongest | highest | most | poor prior match |
-# | 0.1 | slightly worse | lower | many | improved |
-# | 1 | worse | lower | fewer | more coherent |
-# | 4 | weakest/collapse risk | lowest | fewest | prior-compatible but possibly uninformative |
-#
-# Optimization can violate a monotonic trend, so the experiment still decides
-# the actual result.
+# Raw KL should tend to decrease. Reconstruction error may rise because retaining input-specific detail costs more. Optimization can violate the trend.
 # </details>
 
 # %%
-subprocess.run(
-    [
-        sys.executable,
-        "-m",
-        "course_aiml_autoencoders.cli",
-        "study",
-        str(study_path),
-        "--seeds",
-        "0",
-    ],
-    cwd=ROOT,
-    check=True,
-)
-
-# %%
-study_summary_path = sorted(
-    (ROOT / "runs" / study["id"]).glob("study-summary-*.json")
-)[-1]
-study_summary = json.loads(study_summary_path.read_text())
+base = load_yaml(ROOT / "recipes/vae/vae-001-basic.yaml")
+expensive = with_overrides(base, {"objective.beta": 4.0})
+expensive["id"] = "vae/vae-beta-4"
 observations = []
-for record in study_summary["records"]:
-    run_dir = ROOT / record["run_dir"]
-    diagnostics = json.loads((run_dir / "diagnostics.json").read_text())
-    metrics = record["best_validation_metrics"]
-    observations.append(
-        {
-            "variant": record["variant"],
-            "beta": metrics["validation/beta"],
-            "distortion": metrics["validation/reconstruction_loss"],
-            "rate": metrics["validation/kl_loss"],
-            "active_dimensions": diagnostics["vae_latent"][
-                "active_dimensions"
-            ],
-            "run_dir": run_dir,
-        }
-    )
-observations
+for beta, recipe in ((1.0, base), (4.0, expensive)):
+    run_dir = learn(recipe, profile=PROFILE)
+    summary = load_run_summary(run_dir)
+    metrics = summary["best_validation_metrics"]
+    rate, distortion = metrics["validation/kl_loss"], metrics["validation/reconstruction_loss"]
+    observations.append((beta, rate, distortion))
+    print("beta", beta, "raw KL", rate, "reconstruction BCE", distortion,
+          "KL-threshold dimensions", summary["vae_latent"]["active_dimensions"])
+    display(Image(filename=str(run_dir / "figures/random-latent-samples.png")))
+for beta, rate, distortion in observations:
+    plt.scatter(rate, distortion)
+    plt.annotate(f"beta={beta:g}", (rate, distortion))
+plt.xlabel("Raw KL, nats/image")
+plt.ylabel("Center-decoded reconstruction BCE/image")
+plt.title("Two observed tradeoffs; short runs, not an optimal frontier")
+plt.show()
 
 # %% [markdown]
-# ## Build the rate–distortion view
-#
-# Moving down means better reconstruction. Moving left means using fewer nats.
-# Neither axis alone defines a universally best model.
-
-# %%
-figure, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-for item in observations:
-    axes[0].scatter(item["rate"], item["distortion"], s=70)
-    axes[0].annotate(
-        f"β={item['beta']:g}",
-        (item["rate"], item["distortion"]),
-        xytext=(5, 5),
-        textcoords="offset points",
-    )
-axes[0].set(
-    xlabel="Rate: raw KL (nats/example)",
-    ylabel="Distortion: reconstruction BCE/example",
-    title="Observed rate–distortion frontier",
-)
-axes[0].grid(alpha=0.25)
-axes[1].plot(
-    [item["beta"] for item in observations],
-    [item["active_dimensions"] for item in observations],
-    marker="o",
-)
-axes[1].set(
-    xscale="symlog",
-    xlabel="Beta",
-    ylabel="Active latent dimensions",
-    title="Information can disappear dimension by dimension",
-)
-axes[1].grid(alpha=0.25)
-figure.tight_layout()
+# A point toward the left uses less posterior-to-prior KL; a point lower down
+# reconstructs better under the chosen BCE convention. Neither axis defines a
+# universally best model. Inspect samples and input dependence to decide whether
+# the exchange helps the task. Total losses are unsuitable for ranking because
+# beta changes what they mean.
 
 # %% [markdown]
-# ## Images arbitrate ambiguous metrics
+# ## Advancement gate — transfer check
 #
-# Compare prior samples in beta order. Low rate is useful only when the decoder
-# still receives enough input-dependent information to model meaningful
-# variation.
-
-# %%
-for item in observations:
-    print(f"beta={item['beta']:g}")
-    display(
-        Image(
-            filename=str(
-                item["run_dir"] / "figures/random-latent-samples.png"
-            )
-        )
-    )
+# The beta-four model has a lower total loss but worse reconstruction. Is it the winner?
+#
+# <details>
+# <summary>Reveal the expected reasoning</summary>
+#
+# The totals optimize differently weighted objectives. Compare named components and the behavior required by the task; lower total loss does not settle the choice.
+# </details>
 
 # %% [markdown]
-# ## Common mistakes
+# <details>
+# <summary>Optional: go deeper</summary>
 #
-# - Comparing total objective values even though beta changed the objective.
-# - Calling low KL “good regularization” without reconstruction evidence.
-# - Calling high KL “expressive” without inspecting prior mismatch.
-# - Choosing a beta from one attractive image.
-#
-# ## Advancement gate
-#
-# Diagnose a run with excellent reconstruction, high KL, and poor prior samples
-# using rate, distortion, and aggregate-posterior mismatch—without saying only
-# “overfitting.”
+# For beta 0, 0.1, 1, and 4, run
+# `uv run course-aiml-autoencoders study studies/vae/vae-001-beta-sweep.yaml --seeds 0`.
+# Repeat only a meaningful finalist contrast across seeds if you want a durable
+# numerical conclusion. Predict sample diversity as well as prior compatibility.
+# </details>
+
+# %% [markdown]
+# **Next:** [Lesson 09](09-collapse.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/09-collapse.ipynb). No worksheet is required.

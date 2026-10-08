@@ -12,128 +12,134 @@
 # ---
 
 # %% [markdown]
-# # Lesson 00 — Trust the laboratory before trusting a result
+# # Lesson 00 — See what an autoencoder does
 #
-# **Source of truth:** `course/notebook_sources/00-laboratory.py`
+# **Learning objective:** follow an image through an encoder, a bottleneck, and a decoder.
 #
-# This generated notebook is an executable lab. Edit the Jupytext source, then
-# rebuild notebooks with `uv run python scripts/build_notebooks.py`.
+# Imagine sending a picture through a tiny note. The encoder writes the note;
+# the decoder rebuilds a picture using only that note. Training teaches both sides
+# the same shorthand. Today we inspect the system *before* it learns.
 #
-# ## Learning objective
+# You need basic Python, tensors as arrays of numbers, and the idea that training
+# adjusts weights to reduce an error. Probability and gradient details are
+# introduced when needed. Run cells in order; make a mental prediction, then
+# expand its explanation. The course moves from reconstruction to sampling and
+# finally to discrete visual tokens.
+
+# %% [markdown]
+# ## Setup
 #
-# Establish the repository contract: every model must produce a reconstruction,
-# a latent representation, and model-specific extras; every objective must be
-# finite and backpropagate before a long experiment is worth running.
+# Run this cell first. In Colab it fetches the course code automatically;
+# locally it uses your checkout. The lessons use short CPU experiments.
 
 # %%
+import os
 from pathlib import Path
+import subprocess
+import sys
 
+# Find an existing checkout before fetching one in a fresh Colab session.
+_start = Path.cwd().resolve()
+_course_root = next((
+    candidate for candidate in (_start, *_start.parents)
+    if (candidate / "course/curriculum.yaml").is_file()
+    and (candidate / "src/course_aiml_autoencoders").is_dir()
+), None)
+if _course_root is None:
+    try:
+        import google.colab
+    except ImportError as error:
+        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
+    _course_root = _start / "course-aiml-autoencoders"
+    if not _course_root.exists():
+        subprocess.run([
+            "git", "clone", "--depth", "1", "--branch", "main",
+            "https://github.com/tsilva/course-aiml-autoencoders.git",
+            str(_course_root),
+        ], check=True)
+    if not (_course_root / "course/curriculum.yaml").is_file():
+        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
+os.chdir(_course_root)
+_course_src = str(_course_root / "src")
+if _course_src not in sys.path:
+    sys.path.insert(0, _course_src)
+print("Course ready:", _course_root)
+
+# %%
+import matplotlib.pyplot as plt
 import torch
-
-from course_aiml_autoencoders.config import load_yaml
-from course_aiml_autoencoders.course import repository_root
-from course_aiml_autoencoders.data.datasets import dataset_spec
-from course_aiml_autoencoders.models import build_model
-from course_aiml_autoencoders.objectives import build_objective
+from IPython.display import Image, display
+from course_aiml_autoencoders.config import load_yaml, with_overrides
+from course_aiml_autoencoders.course import (
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
+)
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
+)
 
 ROOT = repository_root()
 torch.manual_seed(0)
-ROOT
+PROFILE = "quick"
 
 # %% [markdown]
 # ## Predict before running
 #
-# Why should the trainer receive one common output structure instead of knowing
-# separate AE, VAE, and VQ-VAE calling conventions?
+# An untrained model already has an encoder and decoder. Will its reconstruction resemble the input?
 #
 # <details>
-# <summary>Reveal the reasoning</summary>
+# <summary>Reveal the expected reasoning</summary>
 #
-# A shared reconstruction/latent/extras contract keeps the trainer generic. It
-# can optimize and track every model family without embedding model-specific
-# branches. Each model exposes specialized information through `extras`, while
-# reusable model mathematics stays in the model and objective modules.
+# Usually not: the shape of the system is in place, but the weights have not learned a shared shorthand.
 # </details>
 
 # %%
-recipe_paths = [
-    ROOT / "recipes/smoke/fake-ae.yaml",
-    ROOT / "recipes/smoke/fake-vae.yaml",
-    ROOT / "recipes/smoke/fake-vqvae.yaml",
-]
+from course_aiml_autoencoders.models import build_model
+from course_aiml_autoencoders.data.datasets import dataset_spec
 
-contracts = []
-for recipe_path in recipe_paths:
-    config = load_yaml(recipe_path)
-    spec = dataset_spec(config["dataset"])
-    model = build_model(config["model"], spec)
-    objective = build_objective(config["objective"])
-    inputs = torch.rand(4, *spec.input_shape)
+config = load_yaml(ROOT / "recipes/smoke/fake-ae.yaml")
+spec = dataset_spec(config["dataset"])
+model = build_model(config["model"], spec)
+inputs = torch.zeros(2, *spec.input_shape)
+inputs[0, :, 5:23, 10:18] = 1
+inputs[1, :, 10:18, 5:23] = 1
+model.eval()
+with torch.no_grad():
     output = model(inputs)
-    losses = objective(output, inputs)
-    model.zero_grad(set_to_none=True)
-    losses["loss"].backward()
-    gradient_norm = sum(
-        float(parameter.grad.norm())
-        for parameter in model.parameters()
-        if parameter.grad is not None
-    )
-    contracts.append(
-        {
-            "model": config["model"]["kind"],
-            "input": tuple(inputs.shape),
-            "reconstruction": tuple(output.reconstruction.shape),
-            "latent": tuple(output.latent.shape),
-            "extras": sorted(output.extras),
-            "losses": sorted(losses),
-            "gradient_norm": gradient_norm,
-        }
-    )
-
-contracts
+print("Image → note → image:", tuple(inputs.shape), "→", tuple(output.latent.shape), "→", tuple(output.reconstruction.shape))
+_ = plot_reconstruction_grid(inputs, output.reconstruction, include_error=True)
 
 # %% [markdown]
-# ## Interrogate the evidence
+# The output has the right shape without having useful content. This is why a
+# working command or a finite loss does not prove learning. In Lesson 01 we build
+# a deliberately simple competitor; in Lesson 02 a trained model must beat it.
 #
-# For each row, check:
-#
-# - Reconstruction shape exactly matches input shape.
-# - Latent shape reflects the model family.
-# - Extras expose only model-specific information.
-# - The gradient norm is finite and nonzero.
-#
-# Passing these checks proves wiring, not learning. Random synthetic images have
-# no useful garment structure, and a finite loss does not show that a model
-# learned an input-dependent representation.
-
-# %%
-assert all(item["input"] == item["reconstruction"] for item in contracts)
-assert all(item["gradient_norm"] > 0 for item in contracts)
-print("Shape and gradient contracts passed.")
+# AE: writes a continuous note. VAE: writes a distribution of possible notes.
+# VQ-VAE: writes a grid of symbols from a learned vocabulary. Each changes what
+# can pass through the bottleneck and how new notes can be generated.
 
 # %% [markdown]
-# ## Repository-level trust check
+# ## Advancement gate — transfer check
 #
-# Run the complete fast test suite in a terminal:
+# A colleague shows you a model with perfect tensor shapes and no training history. What evidence is still missing?
 #
-# ```bash
-# uv sync --locked
-# uv run pytest
-# ```
+# <details>
+# <summary>Reveal the expected reasoning</summary>
 #
-# Then run the smoke recipes if you want to inspect the durable run contract:
+# Evidence that training produces input-dependent reconstructions on held-out images and improves on an input-ignoring baseline.
+# </details>
+
+# %% [markdown]
+# <details>
+# <summary>Optional: go deeper</summary>
 #
-# ```bash
-# uv run course-aiml-autoencoders train recipes/smoke/fake-ae.yaml --device cpu
-# uv run course-aiml-autoencoders train recipes/smoke/fake-vae.yaml --device cpu
-# uv run course-aiml-autoencoders train recipes/smoke/fake-vqvae.yaml --device cpu
-# ```
-#
-# ## Advancement gate
-#
-# Explain, without reading code:
-#
-# 1. What a recipe controls.
-# 2. Why a smoke test is weaker than a learning result.
-# 3. Why total losses from different model families need not be comparable.
-# 4. Why reusable model and training logic belongs in `src/course_aiml_autoencoders`, not here.
+# For implementation trust checks, run `uv run --frozen python -m pytest`.
+# The model returns reconstruction, latent, and specialized extras so one generic
+# trainer can serve all three families. Models and objectives own their math;
+# notebooks configure experiments and inspect evidence.
+# </details>
+
+# %% [markdown]
+# **Next:** [Lesson 01](01-mean-baseline.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/01-mean-baseline.ipynb). No worksheet is required.

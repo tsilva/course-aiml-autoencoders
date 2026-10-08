@@ -1,164 +1,159 @@
 # From Bottlenecks to Discrete Latents
 
-This is an executable, experiment-first course on autoencoders, variational
-autoencoders, and VQ-VAEs. The goal is not to finish every notebook quickly.
-The goal is to predict what a model should do, expose the relevant tensors and
-images, notice contradictions, and explain the observed dynamics.
+Learn the mechanisms with one question, one prediction, one small experiment,
+one explanation, and one transfer check per lesson. Start with a reconstruction
+baseline, learn continuous latents, then learn discrete tokens and their prior.
 
-## How to use the course
+## Start here
 
-Work through one lesson at a time:
+You need basic Python, arrays/tensors, and the idea that training adjusts
+weights to reduce an error. Probability and gradient details arrive when they
+help explain behavior. Python 3.11–3.13 and uv are required.
 
-1. Open the generated notebook.
-2. Pause at every question, reason mentally, then expand its answer check.
-3. Run one cell at a time.
-4. Inspect tensors, metrics, reconstructions, error maps, and diagnostics.
-5. Reconcile any result that contradicts your prediction.
-6. Complete a copy of [WORKSHEET.md](WORKSHEET.md).
-7. Continue only when you can pass the advancement gate without notes.
+For Colab, use the [curriculum badges](../README.md#curriculum) and choose
+**Runtime → Run all**. Each notebook fetches the course code automatically;
+no extra setup cell is needed. Use its **Open in Colab** link for the next lesson.
+Colab's runtime storage is temporary.
 
-Start JupyterLab at Lesson 00:
+For local use, run from the repository root:
 
 ```bash
-uv sync --locked
-uv run jupyter lab course/notebooks/00-laboratory.ipynb
+uv sync --frozen
+uv run --frozen python -m jupyterlab course/notebooks/00-laboratory.ipynb
 ```
 
-The generated notebooks intentionally contain no saved outputs. Running them
-locally produces your own evidence and may make the tracked notebook appear
-modified. Rebuilding restores the deterministic, output-free distribution
-form.
+Open Jupyter's printed URL. Lesson 00 runs without a dataset download or
+training. Follow each notebook's **Next** link and run cells in order.
 
-List the curriculum at any time:
+1. Make the prediction mentally before revealing the expected reasoning.
+2. Run the small experiment and inspect its images or named metrics.
+3. Reconcile a contradictory result with the explanation.
+4. Answer the brief transfer check and expand its reasoning.
+
+No worksheets, code-reading assignments, full sweeps, or seed reports are
+required for the core path. Optional collapsed sections contain the math and
+larger investigations. If a check exposes a gap, revisit that example before
+continuing; there is no grading ceremony.
+
+## Short runs and immediate evidence
+
+Small examples expose pixel error, stochastic clouds, quantization, and uneven
+symbol use before expensive training. They are illustrative probes, not saved
+training results. Distributed notebooks remain output-free.
+
+The default `PROFILE = "quick"` uses the original architecture and objective,
+up to eight CPU epochs, 2,048 training images, and 512 validation images. Full
+studies are optional. Short runs teach the mechanism; their rankings, samples,
+and negative results may change with more training.
+
+`learn(...)` reuses a completed run only when the resolved configuration,
+training source fingerprint, and artifacts match. `learn_prior(...)` also
+checks the exact VQ checkpoint path and content hash. Both print the run path
+and measured training-plus-diagnostics time on its recorded device. Repeated
+lessons reuse that same evidence rather than selecting an unrelated latest run.
+A local run index is saved under ignored `runs/course/session.json`.
+
+- Set `PROFILE = "full"` for the original recipe budget.
+- Use `learn(..., rerun=True)` to generate fresh evidence.
+- Keep all lessons on the same profile for consistent comparisons.
+- Quick training caps CPU threads at four and restores the previous setting.
+- The first Fashion-MNIST use downloads the dataset once into ignored `data/`.
+- A failed or incomplete run is retried, not reused as completed evidence.
+
+Curriculum time estimates are approximate **reading and thinking time**, not
+hardware benchmarks. Actual compute time is printed for your device. See
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md) for first-run downloads, interruptions,
+and ways to revisit exact evidence.
+
+## Core course map
+
+| Lessons | Main question | Extra work is optional |
+|---|---|---|
+| 00–01 | What does reconstruction mean, and what baseline should it beat? | Pipeline contracts and tests |
+| 02–03 | What do eight sliders preserve, and how does nonlinearity help? | Decoder directions and latent-size sweep |
+| 04–05 | What task does denoising optimize, and why does an AE lack a sampling rule? | Sparsity and latent projections |
+| 06–09 | How do clouds and prior pressure enable sampling, and how can they lose information? | Gradient derivations, beta sweep, collapse remedies |
+| 10–12 | How do symbols learn, get used, and form coherent arrangements? | Codebook/commitment sweeps and larger priors |
+| 13 | Which mechanism fits the task, and what would falsify that choice? | Multi-seed capstone and downstream probe |
+
+List lessons or open a concise reference:
 
 ```bash
-uv run course-aiml-autoencoders course
-uv run course-aiml-autoencoders course 00
+uv run --frozen course-aiml-autoencoders course
+uv run --frozen course-aiml-autoencoders course 06
 ```
 
-The lesson command prints three paths:
+For interactive guidance, ask: “Start lesson 06 with me. Let me predict before
+you reveal the explanation.” Share the printed run directory when discussing
+evidence; it contains the resolved config, metrics, best checkpoint, and figures.
 
-- `guide`: concise Markdown reference.
-- `notebook_source`: canonical Jupytext `py:percent` source.
-- `notebook`: generated `.ipynb` for learners and GitHub.
+## Evidence that answers the question
 
-When you want interactive guidance, tell Codex:
+Training and selection use disjoint, seeded subsets of the original training
+split. The official test split is reserved for optional final confirmation via
+`build_test_dataloader`; never use it to choose checkpoints or tune variants.
+Older runs used a different split and should not be mixed with new evidence.
 
-```text
-Start lesson 03 with me. Do not give me the conclusions before I make my
-predictions. Here is the run directory from the previous lesson: ...
-```
+Denoising compares models on identical seeded corruption and scores output
+against the **clean target**. Its figure shows clean target, noisy input,
+reconstruction, and clean-target error. Clean-input MSE remains a separate
+measure. Code priors are compared with uniform and training-frequency unigram
+baselines, because learning frequent tokens alone can beat uniform prediction.
 
-After a run, provide its printed `run_dir`. The run contains the exact config,
-metrics, checkpoint, summary, and figures needed for discussion.
+Low KL, high codebook usage, attractive samples, and a small total loss are
+individually incomplete evidence. Match the diagnostic to the task. Total
+objectives across AE, VAE, and VQ-VAE use different terms and scales.
 
-Use [GLOSSARY.md](GLOSSARY.md) for terminology and
-[TROUBLESHOOTING.md](TROUBLESHOOTING.md) when a command or result behaves
-unexpectedly.
+## Optional research path
 
-## Notebook authoring contract
+Choose one extension that answers your next question:
 
-Edit only `course/notebook_sources/*.py`. Cells use Jupytext percent markers:
+- Run one declared-variable study from `studies/`.
+- Confirm an important close comparison with seeds 0, 1, and 2.
+- Freeze an encoder and compare a classification or retrieval probe with raw
+  pixels and PCA, using identical splits.
+- Preserve a conclusion using [WORKSHEET.md](WORKSHEET.md) in `reports/`.
 
-```python
-# %% [markdown]
-# ## Predict before running
-# What result should this mechanism produce?
-#
-# <details>
-# <summary>Reveal the expected reasoning</summary>
-#
-# State the causal expectation here.
-# </details>
+<details>
+<summary>Commands for standalone experiments</summary>
 
-# %%
-result = run_training(config)
-```
-
-Build and verify all generated notebooks with:
+Run these from the repository root:
 
 ```bash
-uv run python scripts/build_notebooks.py
-uv run python scripts/build_notebooks.py --check
+uv run --frozen course-aiml-autoencoders train recipes/smoke/fake-ae.yaml --device cpu
+uv run --frozen course-aiml-autoencoders train recipes/ae/ae-001-linear.yaml
+uv run --frozen course-aiml-autoencoders study studies/ae/ae-003-latent-capacity.yaml --seeds 0
+uv run --frozen course-aiml-autoencoders inspect <RUN_DIR>
 ```
 
-The builder assigns content-derived cell IDs, normalizes kernel metadata,
-removes outputs and execution counts, detects stale notebooks, and writes
-stable notebook JSON. Tests enforce one source and generated notebook per
-curriculum lesson.
+</details>
 
-Conversion and execution are deliberately separate. Conversion must be
-deterministic; training execution produces machine- and run-specific evidence.
+Keep studies (questions), recipes (configurations), reports (conclusions), and
+ignored runs (evidence) distinct. See [GLOSSARY.md](GLOSSARY.md) and
+[the experiment protocol](../docs/EXPERIMENT_PROTOCOL.md) when needed.
 
-Execute output-bearing copies without modifying committed notebooks:
+## Authoring and execution
+
+Edit canonical `course/notebook_sources/*.py`; never hand-edit generated
+`course/notebooks/*.ipynb`. Keep reusable computation under
+`src/course_aiml_autoencoders`. Use concise questions followed by collapsed
+expected reasoning, with no blank answer fields.
 
 ```bash
-uv run python scripts/execute_notebooks.py --profile smoke
-uv run python scripts/execute_notebooks.py --profile foundations
-uv run python scripts/execute_notebooks.py --lessons 06 07
+uv run --frozen python scripts/build_notebooks.py
+uv run --frozen python scripts/build_notebooks.py --check
+uv run --frozen python -m pytest
 ```
 
-Executed copies are written beneath ignored `runs/notebook-executions/`.
-
-Reusable computation belongs in `src/course_aiml_autoencoders`. Notebook cells may configure
-experiments, call the trainer, and interrogate returned tensors, but must not
-define alternative models, objectives, or training loops.
-
-Question cells must not contain blank fields that ask learners to type into the
-distributed notebook. Use a concise question followed by a collapsed
-`<details>` reasoning check. Learners may take notes wherever they prefer.
-
-## Course map
-
-| Module | Lessons | Central question |
-|---|---:|---|
-| Laboratory | 00–01 | What counts as evidence that reconstruction learned something? |
-| Autoencoders | 02–05 | What does a deterministic bottleneck preserve, and what does it fail to define? |
-| VAEs | 06–09 | How does KL pressure create a sampleable continuous latent space? |
-| VQ-VAEs | 10–12 | How do discrete codes learn, collapse, and become generative? |
-| Synthesis | 13 | Which representation should we choose, and why? |
-
-The exploratory pass uses one seed. Lesson 13 repeats only the important
-finalists over three seeds. This separates learning/debugging from evidence
-strong enough to support a conclusion.
-
-## Evidence hierarchy
-
-Treat evidence in this order:
-
-1. Tensor, range, and gradient tests
-2. Tiny-overfit behavior
-3. Training and validation loss components
-4. Fixed reconstructions
-5. Model-specific diagnostics
-6. Repeated-seed confirmation
-
-A visually attractive sample does not override broken loss semantics. A lower
-total loss does not imply a better model when the objectives differ.
-
-## Expected artifacts
-
-Training creates:
-
-```text
-runs/<recipe>/<timestamp>-seed-<seed>/
-├── resolved-config.yaml
-├── metrics.jsonl
-├── summary.json
-├── diagnostics.json          # VAE and VQ-VAE when applicable
-├── checkpoint-best.pt
-└── figures/
-```
-
-Use:
+To execute output-bearing copies under ignored `runs/notebook-executions/`:
 
 ```bash
-uv run course-aiml-autoencoders inspect <RUN_DIR>
+uv run --frozen python scripts/execute_notebooks.py --profile smoke
+uv run --frozen python scripts/execute_notebooks.py --profile foundations
+uv run --frozen python scripts/execute_notebooks.py --profile all
 ```
 
-The inspection command prints the best metrics, model-specific summary, final
-epoch metrics, and all figure paths.
-
-The notebooks use the same underlying probes and run artifacts, but render
-them inline. Reconstruction labs show class-balanced inputs, aligned
-reconstructions, per-example loss, and squared-error maps.
+Notebook conversion is deterministic and output-free. Execution creates your
+own evidence; it never overwrites the distributed notebooks. Explicit lesson
+sets work independently: prerequisite experiments are created or reused by
+configuration when required.

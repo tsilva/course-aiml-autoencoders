@@ -9,6 +9,7 @@ from course_aiml_autoencoders.course.probes import (
     plot_metric_history,
     repository_root,
 )
+from course_aiml_autoencoders.course.learning import learn, learn_prior, lesson_config
 
 __all__ = [
     "balanced_class_batch",
@@ -18,4 +19,7 @@ __all__ = [
     "load_trained_model",
     "plot_metric_history",
     "repository_root",
+    "learn",
+    "learn_prior",
+    "lesson_config",
 ]

@@ -12,188 +12,153 @@
 # ---
 
 # %% [markdown]
-# # Lesson 10 — VQ-VAE quantization and straight-through learning
+# # Lesson 10 — Snap notes to a learned vocabulary
 #
-# **Learning objective:** trace how a nondifferentiable code choice becomes a
-# trainable discrete bottleneck with distinct gradient paths.
+# **Learning objective:** understand vector quantization as choosing symbols for image regions.
 #
-# For each encoder vector $z_e$, choose its nearest embedding:
+# Instead of any continuous note, use one of a limited set of learned symbols.
+# A VQ-VAE encoder describes each image region as a vector; quantization snaps
+# that vector to its nearest codebook entry. The decoder rebuilds the image from
+# a grid of those entries. First watch four points snap to three fixed symbols.
+
+# %% [markdown]
+# ## Setup
 #
-# $$
-# k=\arg\min_j\lVert z_e-e_j\rVert^2,\qquad z_q=e_k
-# $$
-#
-# Argmin has no ordinary useful gradient. VQ-VAE assigns different optimization
-# jobs to reconstruction, codebook, and commitment paths.
+# Run this cell first. In Colab it fetches the course code automatically;
+# locally it uses your checkout. The lessons use short CPU experiments.
+
+# %%
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+# Find an existing checkout before fetching one in a fresh Colab session.
+_start = Path.cwd().resolve()
+_course_root = next((
+    candidate for candidate in (_start, *_start.parents)
+    if (candidate / "course/curriculum.yaml").is_file()
+    and (candidate / "src/course_aiml_autoencoders").is_dir()
+), None)
+if _course_root is None:
+    try:
+        import google.colab
+    except ImportError as error:
+        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
+    _course_root = _start / "course-aiml-autoencoders"
+    if not _course_root.exists():
+        subprocess.run([
+            "git", "clone", "--depth", "1", "--branch", "main",
+            "https://github.com/tsilva/course-aiml-autoencoders.git",
+            str(_course_root),
+        ], check=True)
+    if not (_course_root / "course/curriculum.yaml").is_file():
+        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
+os.chdir(_course_root)
+_course_src = str(_course_root / "src")
+if _course_src not in sys.path:
+    sys.path.insert(0, _course_src)
+print("Course ready:", _course_root)
 
 # %%
 import matplotlib.pyplot as plt
 import torch
-
-from course_aiml_autoencoders.config import load_yaml
+from IPython.display import Image, display
+from course_aiml_autoencoders.config import load_yaml, with_overrides
 from course_aiml_autoencoders.course import (
-    balanced_class_batch,
-    load_run_summary,
-    load_trained_model,
-    repository_root,
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
 )
 from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import plot_image_grid, plot_reconstruction_grid
-from course_aiml_autoencoders.models.quantizer import VectorQuantizer
-from course_aiml_autoencoders.training import run_training
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
+)
 
 ROOT = repository_root()
-
-# %% [markdown]
-# ## Trace gradients with a tiny quantizer
-#
-# Predict which parameters receive gradients from each isolated term:
-#
-# | Term | Encoder latent | Codebook |
-# |---|---|---|
-# | Reconstruction through straight-through output | ? | ? |
-# | Codebook loss | ? | ? |
-# | Commitment loss | ? | ? |
-#
-# <details>
-# <summary>Reveal the gradient routing</summary>
-#
-# | Term | Encoder latent | Codebook |
-# |---|---|---|
-# | Reconstruction through straight-through output | yes | no |
-# | Codebook loss | no | yes |
-# | Commitment loss | yes | no |
-#
-# Stop-gradient operations create these deliberately separated update paths.
-# </details>
-
-# %%
 torch.manual_seed(0)
-quantizer = VectorQuantizer(
-    codebook_size=4,
-    embedding_dim=2,
-    commitment_weight=0.25,
-)
-encoder_latent = torch.randn(1, 2, 2, 2, requires_grad=True)
-straight_through, extras = quantizer(encoder_latent)
-straight_through.square().mean().backward()
-print("reconstruction path → encoder:", encoder_latent.grad.norm())
-print("reconstruction path → codebook:", quantizer.codebook.weight.grad)
-
-# %%
-quantizer.zero_grad(set_to_none=True)
-encoder_latent = torch.randn(1, 2, 2, 2, requires_grad=True)
-_straight_through, extras = quantizer(encoder_latent)
-extras["codebook_loss"].backward()
-print("codebook loss → encoder:", encoder_latent.grad)
-print("codebook loss → codebook:", quantizer.codebook.weight.grad.norm())
-
-# %%
-quantizer.zero_grad(set_to_none=True)
-encoder_latent = torch.randn(1, 2, 2, 2, requires_grad=True)
-_straight_through, extras = quantizer(encoder_latent)
-extras["commitment_loss"].backward()
-print("commitment loss → encoder:", encoder_latent.grad.norm())
-print("commitment loss → codebook:", quantizer.codebook.weight.grad)
+PROFILE = "quick"
 
 # %% [markdown]
-# The straight-through estimator deliberately uses a biased surrogate gradient:
-# the forward value is quantized, while the backward reconstruction gradient
-# behaves as though quantization were the identity.
-
-# %% [markdown]
-# ## Train the image model
+# The default uses eight CPU epochs on 2,048 training images and 512 held-out
+# images. A matching completed run is reused automatically; its exact path and
+# measured duration are printed. These short runs expose mechanisms, not settled
+# rankings. The first Fashion-MNIST lesson downloads the dataset once.
 #
-# Predict reconstruction quality, token-map structure, codes used, dead codes,
-# and perplexity before running.
+# Set `PROFILE = "full"` for the original training budget; `learn(..., rerun=True)`
+# creates fresh evidence. You can return to the prediction while training runs.
+
+# %% [markdown]
+# ## Predict before running
+#
+# If two nearby vectors choose the same symbol, will the decoder still see their small difference?
 #
 # <details>
 # <summary>Reveal the expected reasoning</summary>
 #
-# Reconstructions should preserve coarse garment structure. Nearby spatial
-# regions should produce structured token maps rather than independent noise.
-# The model will probably use fewer than all 128 codes, leaving dead entries,
-# and assignment perplexity should be below nominal codebook size.
+# No. Quantization replaces both with the same embedding. That loses detail but creates a discrete vocabulary.
 # </details>
 
 # %%
-config = load_yaml(ROOT / "recipes/vqvae/vqvae-001-basic.yaml")
-result = run_training(config, run_root=ROOT / "runs")
-run_dir = result.run_dir
+from course_aiml_autoencoders.models.quantizer import VectorQuantizer
+
+quantizer = VectorQuantizer(codebook_size=3, embedding_dim=2, commitment_weight=0.25)
+with torch.no_grad():
+    quantizer.codebook.weight.copy_(torch.tensor([[-1., -1.], [1., -1.], [0., 1.]]))
+points = torch.tensor([[-0.9, -0.7], [-0.6, -0.8], [0.9, -0.6], [0.2, 0.7]])
+quantized, extras = quantizer(points.T.reshape(1, 2, 1, 4))
+chosen = quantized.detach().permute(0, 2, 3, 1).reshape(-1, 2)
+plt.scatter(points[:, 0], points[:, 1], label="encoder vectors")
+embeddings = quantizer.codebook.weight.detach()
+plt.scatter(embeddings[:, 0], embeddings[:, 1], marker="s", s=100, label="codebook")
+for point, symbol in zip(points, chosen):
+    plt.plot([point[0], symbol[0]], [point[1], symbol[1]], color="gray")
+plt.legend()
+plt.axis("equal")
+plt.title("Snapping to symbols; illustrative fixed codebook")
+plt.show()
+print("Chosen symbols:", extras["indices"].flatten().tolist())
+
+# %% [markdown]
+# The real codebook is learned. Reconstruction trains the encoder/decoder,
+# codebook loss moves symbols toward encoder outputs, and commitment loss keeps
+# encoder outputs near their chosen symbols. Straight-through learning passes an
+# approximate reconstruction gradient through the discrete choice.
+
+# %%
+run_dir = learn("recipes/vqvae/vqvae-001-basic.yaml", profile=PROFILE)
 summary = load_run_summary(run_dir)
-summary
-
-# %%
-model, resolved = load_trained_model(run_dir)
-_train_loader, validation_loader, spec = build_dataloaders(
-    resolved["dataset"], resolved["training"]
-)
-inputs, labels = balanced_class_batch(validation_loader, spec.num_classes)
-names = class_names(resolved["dataset"]["name"])
-with torch.no_grad():
-    output = model(inputs)
-_ = plot_reconstruction_grid(
-    inputs,
-    output.reconstruction,
-    labels=labels,
-    class_names=names,
-    max_items=spec.num_classes,
-    include_error=True,
-)
+print(summary["codebook"])
+for figure in ("reconstructions.png", "token-maps.png", "uniform-random-token-samples.png"):
+    display(Image(filename=str(run_dir / "figures" / figure)))
 
 # %% [markdown]
-# ## Inspect the discrete representation
-
-# %%
-figure, axes = plt.subplots(2, 5, figsize=(12, 5))
-for axis, token_map, label in zip(
-    axes.flat,
-    output.extras["indices"],
-    labels,
-    strict=True,
-):
-    axis.imshow(token_map, cmap="viridis")
-    axis.set_title(names[int(label)])
-    axis.axis("off")
-figure.suptitle("Each 7×7 cell is one discrete code index")
-figure.tight_layout()
-
-# %%
-diagnostics = summary["codebook"]
-print(
-    "nominal codes:", diagnostics["codebook_size"],
-    "used:", diagnostics["codes_used"],
-    "dead:", diagnostics["dead_codes"],
-    "perplexity:", diagnostics["perplexity"],
-)
+# Each 7-by-7 position is a code index. Indices name symbols; neighboring numeric
+# IDs need not mean similar image features. VQ-VAE learns reusable discrete visual
+# tokens, but neither good reconstruction nor a vocabulary teaches which token
+# arrangements make plausible new images. That is the prior's job.
 
 # %% [markdown]
-# Perplexity is the effective vocabulary size implied by assignment entropy. It
-# is neither the nominal codebook size nor a reconstruction-quality metric.
+# ## Advancement gate — transfer check
 #
-# ## Test the second sampling failure
+# The codebook and decoder are trained. Why can a grid of uniformly random tokens still look incoherent?
 #
-# The decoder knows code meanings, but no model has learned which spatial token
-# arrangements are likely.
-
-# %%
-torch.manual_seed(0)
-height, width = output.extras["indices"].shape[1:]
-random_indices = torch.randint(
-    0, model.quantizer.codebook.num_embeddings, (16, height, width)
-)
-embeddings = model.quantizer.codebook(random_indices).permute(0, 3, 1, 2)
-with torch.no_grad():
-    random_images = model.decoder(embeddings)
-_ = plot_image_grid(
-    random_images,
-    title="Uniformly random token grids are not a learned prior",
-    max_items=16,
-)
+# <details>
+# <summary>Reveal the expected reasoning</summary>
+#
+# Knowing word meanings does not teach sentence probabilities. The model has learned symbols and decoding, not a distribution over coherent spatial arrangements.
+# </details>
 
 # %% [markdown]
-# ## Advancement gate
+# <details>
+# <summary>Optional: go deeper</summary>
 #
-# Explain why argmin blocks ordinary gradients, why straight-through learning is
-# biased, why codebook size differs from perplexity, and why a trained VQ-VAE is
-# not yet a complete generative model.
+# Nearest-neighbor selection is $k=\arg\min_j\|z_e-e_j\|^2$.
+# Straight-through uses the snapped value forward and an identity surrogate
+# gradient backward; this is biased. Reconstruction gradients reach the encoder,
+# codebook loss updates embeddings, and commitment loss updates the encoder.
+# For isolated gradient probes, see the [VQ reference](../lessons/10-vqvae.md).
+# </details>
+
+# %% [markdown]
+# **Next:** [Lesson 11](11-codebook.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/11-codebook.ipynb). No worksheet is required.

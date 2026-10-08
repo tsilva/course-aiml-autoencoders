@@ -1,7 +1,8 @@
 # Experiment Worksheet
 
-Copy this file into the relevant `reports/` directory and replace every
-placeholder.
+Optional: use this when preserving a research conclusion. Core lessons need
+only a mental prediction and a brief transfer check. Copy it into the relevant
+`reports/` directory and replace every placeholder.
 
 ## Experiment
 

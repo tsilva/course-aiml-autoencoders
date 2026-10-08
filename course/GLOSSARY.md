@@ -1,7 +1,8 @@
 # Course Glossary
 
 - **Active latent dimension:** A VAE dimension whose average raw KL exceeds the
-  diagnostic threshold, suggesting it carries input-dependent information.
+  diagnostic threshold. This is a heuristic: prior mismatch can raise KL even
+  when the coordinate carries no useful input-dependent information.
 - **Aggregate posterior:** The distribution of encoded $z$ values after
   averaging $q(z|x)$ over the data distribution.
 - **Bottleneck:** A constraint that limits what information can pass from input
@@ -21,7 +22,9 @@
 - **Posterior collapse:** A VAE failure where $q(z|x)$ approaches the prior
   and the decoder ignores $z$.
 - **Prior:** A distribution over latent variables before observing an input.
-- **Rate:** VAE KL in nats; an information-cost interpretation of the latent.
+- **Rate:** Average VAE posterior-to-prior KL in nats; an information-cost
+  interpretation that includes both input information and aggregate-posterior
+  mismatch. It is not an exact measurement of mutual information.
 - **Reparameterization trick:** Expresses stochastic VAE samples as a
   differentiable transformation of parameters and parameter-free noise.
 - **Straight-through estimator:** Uses a discrete/quantized value forward while

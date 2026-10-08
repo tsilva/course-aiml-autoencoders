@@ -1,74 +1,51 @@
-# Lesson 02 — A genuinely linear autoencoder
+# Lesson 02 — Rebuild a garment from eight sliders
 
-> Interactive lab: [open the generated notebook](../notebooks/02-linear-ae.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/02-linear-ae.py).
+**Learning objective:** understand a linear encoder, decoder, and bottleneck through visible reconstruction.
 
-## Learning objective
+The encoder turns 784 pixel values into eight slider settings. The decoder
+mixes eight learned patterns to rebuild the image. These are broad patterns,
+not eight selected pixels. Training teaches the encoder and decoder a shared
+language; the bottleneck forces them to prioritize what that language can express.
 
-Understand an undercomplete deterministic bottleneck and its relationship to
-PCA.
+[Open the notebook](../notebooks/02-linear-ae.ipynb). Run its cells in order for the experiment and evidence.
 
-The model is:
+## Predict before running
 
-$$
-z = W_e x + b_e,\qquad \hat{x}=W_dz+b_d
-$$
+Will eight input-dependent sliders beat one mean poster? What details should survive?
 
-with an eight-dimensional latent $z$. There are no hidden nonlinearities and
-the output activation is explicitly `none`.
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-## Read and predict
+Usually the model beats the mean poster by tailoring the sliders to each input. Broad shape and brightness should survive; fine detail is expensive to express with eight linear directions.
+</details>
 
-Read:
+## Run the revealing experiment
 
-- `recipes/ae/ae-001-linear.yaml`
-- `src/course_aiml_autoencoders/models/ae.py`
-- `src/course_aiml_autoencoders/objectives/ae.py`
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-Predict:
+## Advancement gate — transfer check
 
-- Whether it will beat the mean-image baseline.
-- Which garment details an eight-dimensional linear subspace will lose.
-- Whether nearby latent points should decode smoothly.
-- Whether samples drawn arbitrarily from $N(0,I)$ should look like garments.
+A smooth blend between a shirt and a shoe appears on screen. Does that establish a useful generator?
 
-## Run
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-```bash
-uv run course-aiml-autoencoders train recipes/ae/ae-001-linear.yaml
-uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
-```
+No. A linear decoder creates smooth blends automatically. We still need a way to draw plausible new latent codes; reconstruction does not teach a sampling distribution.
+</details>
 
-## Inspect in this order
+<details>
+<summary>Optional: go deeper</summary>
 
-1. `summary.json`: compare validation reconstruction MSE with Lesson 01.
-2. `figures/reconstructions.png`: identify structure retained and lost.
-3. `figures/latent-space.png`: this is a two-dimensional PCA projection of the
-   eight-dimensional learned codes, colored by labels.
-4. `figures/interpolation.png`: look for smooth changes and implausible
-   intermediate mixtures.
-5. `figures/random-latent-samples.png`: arbitrary normal samples have no reason
-   to land in populated regions of the AE latent space.
+The encoder computes `z = W_e x + b_e`; the decoder computes
+`x_hat = W_d z + b_d`. Their composition is affine. With eight latent
+coordinates, all reconstructions lie in an at-most-eight-dimensional affine
+subspace. Under appropriate optimization, the reconstruction subspace matches
+PCA, although individual latent axes may be rotated or rescaled.
 
-## What the PCA relationship does and does not mean
+Explore decoder directions, a one-slider traversal, and interpolation using the
+[linear AE reference](../lessons/02-linear-ae.md).
+</details>
 
-With linear maps, squared error, and suitable optimization, the learned
-subspace spans the same principal subspace as PCA. The individual latent axes
-need not numerically match PCA axes: rotations within the subspace reconstruct
-equally well.
-
-The AE has learned an encoder and decoder, not a probability distribution over
-valid codes.
-
-## Failure signatures
-
-- MSE near the mean baseline: optimization, data, or checkpoint problem.
-- Reconstructions far outside the input range: possible with a linear output;
-  inspect whether this is small overshoot or instability.
-- Random samples that look poor: expected, not a training failure.
-
-## Advancement gate
-
-Draw the tensor shapes from `[B,1,28,28]` through flattening, the
-eight-dimensional bottleneck, and reconstruction. Explain why this model can
-compress but cannot yet generate by sampling a known prior.
+**Next:** [Lesson 03](../notebooks/03-capacity.ipynb).

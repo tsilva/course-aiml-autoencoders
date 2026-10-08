@@ -12,198 +12,137 @@
 # ---
 
 # %% [markdown]
-# # Lesson 11 — Codebook capacity, utilization, and commitment
+# # Lesson 11 — Count the symbols actually used
 #
-# **Learning objective:** distinguish nominal codebook capacity from effective
-# usage and observe how commitment pressure changes the channel.
+# **Learning objective:** distinguish vocabulary size, coverage, and balanced usage.
 #
-# Treat the codebook as a learned communication channel. Nominal vocabulary
-# size does not guarantee that optimization uses every symbol—or uses symbols
-# evenly.
+# A dictionary with 128 words is not a 128-word conversation if almost every
+# sentence repeats one word. Codebook size counts available symbols; codes used
+# counts observed symbols; perplexity summarizes how evenly they are used.
+# Inspect the run from Lesson 10 before spending time training larger codebooks.
+
+# %% [markdown]
+# ## Setup
+#
+# Run this cell first. In Colab it fetches the course code automatically;
+# locally it uses your checkout. The lessons use short CPU experiments.
 
 # %%
-import json
+import os
+from pathlib import Path
 import subprocess
 import sys
 
-import matplotlib.pyplot as plt
+# Find an existing checkout before fetching one in a fresh Colab session.
+_start = Path.cwd().resolve()
+_course_root = next((
+    candidate for candidate in (_start, *_start.parents)
+    if (candidate / "course/curriculum.yaml").is_file()
+    and (candidate / "src/course_aiml_autoencoders").is_dir()
+), None)
+if _course_root is None:
+    try:
+        import google.colab
+    except ImportError as error:
+        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
+    _course_root = _start / "course-aiml-autoencoders"
+    if not _course_root.exists():
+        subprocess.run([
+            "git", "clone", "--depth", "1", "--branch", "main",
+            "https://github.com/tsilva/course-aiml-autoencoders.git",
+            str(_course_root),
+        ], check=True)
+    if not (_course_root / "course/curriculum.yaml").is_file():
+        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
+os.chdir(_course_root)
+_course_src = str(_course_root / "src")
+if _course_src not in sys.path:
+    sys.path.insert(0, _course_src)
+print("Course ready:", _course_root)
 
-from course_aiml_autoencoders.config import load_yaml
-from course_aiml_autoencoders.course import repository_root
+# %%
+import matplotlib.pyplot as plt
+import torch
+from IPython.display import Image, display
+from course_aiml_autoencoders.config import load_yaml, with_overrides
+from course_aiml_autoencoders.course import (
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
+)
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
+)
 
 ROOT = repository_root()
-size_path = ROOT / "studies/vqvae/vqvae-001-codebook-size.yaml"
-commitment_path = ROOT / "studies/vqvae/vqvae-002-commitment.yaml"
+torch.manual_seed(0)
+PROFILE = "quick"
 
 # %% [markdown]
-# ## Prediction A — larger vocabularies
+# The default uses eight CPU epochs on 2,048 training images and 512 held-out
+# images. A matching completed run is reused automatically; its exact path and
+# measured duration are printed. These short runs expose mechanisms, not settled
+# rankings. The first Fashion-MNIST lesson downloads the dataset once.
 #
-# Predict reconstruction MSE, codes used, dead codes, and perplexity for
-# $K\in\{8,32,128,512\}$. Distinguish nominal capacity from effective usage.
+# Set `PROFILE = "full"` for the original training budget; `learn(..., rerun=True)`
+# creates fresh evidence. You can return to the prediction while training runs.
+
+# %% [markdown]
+# ## Predict before running
+#
+# Two encoders use all eight symbols. One uses them evenly; the other uses one symbol 99% of the time. Should their perplexities match?
 #
 # <details>
 # <summary>Reveal the expected reasoning</summary>
 #
-# Small codebooks should use most entries and may constrain reconstruction.
-# Larger codebooks can lower MSE, but utilization and perplexity need not grow
-# proportionally; dead-code count should generally rise as nominal capacity
-# exceeds what optimization uses.
+# No. Both have full coverage, but the concentrated encoder has much lower effective vocabulary size.
 # </details>
 
 # %%
-subprocess.run(
-    [
-        sys.executable,
-        "-m",
-        "course_aiml_autoencoders.cli",
-        "study",
-        str(size_path),
-        "--seeds",
-        "0",
-    ],
-    cwd=ROOT,
-    check=True,
-)
+from course_aiml_autoencoders.diagnostics.codebook import code_usage
 
-# %%
-size_study = load_yaml(size_path)
-size_summary_path = sorted(
-    (ROOT / "runs" / size_study["id"]).glob("study-summary-*.json")
-)[-1]
-size_summary = json.loads(size_summary_path.read_text())
-size_observations = []
-for record in size_summary["records"]:
-    run_dir = ROOT / record["run_dir"]
-    diagnostics = json.loads((run_dir / "diagnostics.json").read_text())[
-        "codebook"
-    ]
-    size_observations.append(
-        {
-            "size": diagnostics["codebook_size"],
-            "used": diagnostics["codes_used"],
-            "dead": diagnostics["dead_codes"],
-            "perplexity": diagnostics["perplexity"],
-            "mse": record["best_validation_metrics"][
-                "validation/reconstruction_loss"
-            ],
-        }
-    )
-size_observations
-
-# %%
-figure, axes = plt.subplots(1, 3, figsize=(14, 4))
-sizes = [item["size"] for item in size_observations]
-axes[0].plot(
-    sizes, [item["mse"] for item in size_observations], marker="o"
-)
-axes[0].set(xscale="log", xlabel="Codebook size", ylabel="MSE")
-axes[1].plot(
-    sizes, [item["used"] for item in size_observations], marker="o", label="used"
-)
-axes[1].plot(
-    sizes,
-    [item["perplexity"] for item in size_observations],
-    marker="o",
-    label="perplexity",
-)
-axes[1].plot(sizes, sizes, linestyle="--", alpha=0.5, label="nominal")
-axes[1].set(xscale="log", yscale="log", xlabel="Codebook size")
-axes[1].legend()
-axes[2].plot(
-    sizes, [item["dead"] for item in size_observations], marker="o"
-)
-axes[2].set(xscale="log", xlabel="Codebook size", ylabel="Dead codes")
-figure.suptitle("More entries do not imply more effective symbols")
-figure.tight_layout()
+for name, tokens in (("balanced", torch.arange(8).repeat(100)),
+                     ("dominated", torch.cat([torch.zeros(792, dtype=torch.long), torch.arange(8)]))):
+    usage = code_usage(tokens, 8)
+    print(name, "codes used:", int(usage["codes_used"]), "perplexity:", float(usage["perplexity"]))
+run_dir = learn("recipes/vqvae/vqvae-001-basic.yaml", profile=PROFILE)
+usage = load_run_summary(run_dir)["codebook"]
+print("Actual validation usage:", usage)
+display(Image(filename=str(run_dir / "figures/codebook-usage.png")))
 
 # %% [markdown]
-# ## Prediction B — commitment pressure
+# Compare the toy contrast with the actual histogram. Some dead entries do not
+# by themselves establish failure: the spatial grid and decoder can reconstruct
+# well with a smaller vocabulary. Conversely, high coverage can hide domination
+# by a few codes. Inspect reconstruction alongside usage.
 #
-# Too little commitment allows encoder outputs to drift from embeddings; too
-# much can constrain reconstruction. Predict raw and weighted commitment terms,
-# reconstruction, and usage before running.
+# Commitment pressure keeps encoder vectors near symbols. Its useful strength
+# is empirical; stronger pressure need not improve either reconstruction or
+# vocabulary use.
+
+# %% [markdown]
+# ## Advancement gate — transfer check
+#
+# A model offers 512 codes, uses 40, and has perplexity 9. What do those three numbers establish?
 #
 # <details>
 # <summary>Reveal the expected reasoning</summary>
 #
-# Increasing the weight should pull encoder outputs closer to selected
-# embeddings, reducing raw commitment distance after adaptation while
-# increasing its optimization importance. Very low pressure may destabilize the
-# discrete interface; very high pressure may damage reconstruction or usage.
-# The best tradeoff need not sit at an endpoint.
+# 512 is nominal vocabulary, 40 received assignments in the evaluated data, and the uneven usage has effective diversity about 9. None alone establishes reconstruction or downstream quality.
 # </details>
 
-# %%
-subprocess.run(
-    [
-        sys.executable,
-        "-m",
-        "course_aiml_autoencoders.cli",
-        "study",
-        str(commitment_path),
-        "--seeds",
-        "0",
-    ],
-    cwd=ROOT,
-    check=True,
-)
-
-# %%
-commitment_study = load_yaml(commitment_path)
-commitment_summary_path = sorted(
-    (ROOT / "runs" / commitment_study["id"]).glob("study-summary-*.json")
-)[-1]
-commitment_summary = json.loads(commitment_summary_path.read_text())
-commitment_observations = []
-for record in commitment_summary["records"]:
-    metrics = record["best_validation_metrics"]
-    commitment_observations.append(
-        {
-            "weight": float(record["variant"].replace("commitment-", "")),
-            "mse": metrics["validation/reconstruction_loss"],
-            "raw": metrics["validation/commitment_loss"],
-            "weighted": metrics["validation/weighted_commitment_loss"],
-            "codebook": metrics["validation/codebook_loss"],
-            "perplexity": metrics["validation/codebook_perplexity"],
-        }
-    )
-commitment_observations
-
 # %% [markdown]
-# Total loss cannot reveal which component improved. Compare raw commitment
-# distance with its weighted contribution, and inspect reconstruction and usage
-# separately.
-
-# %%
-weights = [item["weight"] for item in commitment_observations]
-figure, axes = plt.subplots(1, 2, figsize=(11, 4))
-for metric in ("raw", "weighted", "codebook"):
-    axes[0].plot(
-        weights,
-        [item[metric] for item in commitment_observations],
-        marker="o",
-        label=metric,
-    )
-axes[0].set(xlabel="Commitment weight", ylabel="Loss component")
-axes[0].legend()
-axes[1].plot(
-    weights,
-    [item["mse"] for item in commitment_observations],
-    marker="o",
-    label="reconstruction MSE",
-)
-axes[1].plot(
-    weights,
-    [item["perplexity"] for item in commitment_observations],
-    marker="o",
-    label="perplexity",
-)
-axes[1].set(xlabel="Commitment weight")
-axes[1].legend()
-figure.tight_layout()
-
-# %% [markdown]
-# ## Advancement gate
+# <details>
+# <summary>Optional: go deeper</summary>
 #
-# Given $K=512$, 40 used codes, and perplexity 9, explain all three numbers and
-# why none alone establishes representation quality.
+# Full size and commitment sweeps live in
+# `studies/vqvae/vqvae-001-codebook-size.yaml` and
+# `studies/vqvae/vqvae-002-commitment.yaml`. Change one factor and compare raw and
+# weighted loss terms separately. Dead codes are unobserved in the evaluated
+# sample, not proof they can never be used. EMA updates and dead-code recovery
+# are further optional experiments.
+# </details>
+
+# %% [markdown]
+# **Next:** [Lesson 12](12-code-prior.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/12-code-prior.ipynb). No worksheet is required.

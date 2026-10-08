@@ -1,81 +1,48 @@
-# Lesson 06 — VAE distributions and the beta-zero control
+# Lesson 06 — Write a cloud of possible notes
 
-> Interactive lab: [open the generated notebook](../notebooks/06-vae-control.ipynb).
-> Authors edit the [Jupytext source](../notebook_sources/06-vae-control.py).
+**Learning objective:** understand stochastic encoding before introducing a prior penalty.
 
-## Learning objective
+The VAE encoder writes a small cloud around an image's note instead of one
+fixed note. Its center says where the note belongs; its spread says how much
+it can vary. The decoder practices reading sampled notes from that cloud.
+Start with two dimensions so you can see randomness before seeing equations.
 
-Understand the stochastic encoder and reparameterization trick before adding
-KL pressure.
+[Open the notebook](../notebooks/06-vae-control.ipynb). Run its cells in order for the experiment and evidence.
 
-The encoder predicts:
+## Predict before running
 
-$$
-q_\phi(z|x)=\mathcal N\left(\mu_\phi(x),
-\operatorname{diag}(\sigma_\phi^2(x))\right)
-$$
+If the center stays fixed and the spread grows, what changes when we encode the same input repeatedly?
 
-and samples using:
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-$$
-\epsilon\sim\mathcal N(0,I),\qquad
-z=\mu+\exp(0.5\log\sigma^2)\odot\epsilon
-$$
+Samples spread farther from the center. The input still has the same predicted center, but each sampled note can differ.
+</details>
 
-## Read and trace
+## Run the revealing experiment
 
-Read:
+The notebook uses short CPU runs and reuses exact matching completed evidence.
+It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
+core path; use `"full"` for the original budget. No worksheet is required.
 
-- `src/course_aiml_autoencoders/models/vae.py`
-- `src/course_aiml_autoencoders/objectives/vae.py`
-- `recipes/vae/vae-000-kl-off.yaml`
+## Advancement gate — transfer check
 
-Trace gradients symbolically from reconstruction loss through $z$ to both
-$\mu$ and `logvar`. Explain why directly sampling from
-$\mathcal N(\mu,\sigma^2)$ through a nondifferentiable sampling operation
-would be a problem.
+A beta-zero VAE reconstructs well but samples poorly from the standard normal. Is randomness broken?
 
-## Why beta zero?
+<details>
+<summary>Reveal the expected reasoning</summary>
 
-This run computes KL but assigns it zero weight:
+Not necessarily. Reconstruction can work while encoded clouds occupy locations the standard-normal sampler rarely visits. The missing constraint is prior compatibility.
+</details>
 
-$$
-L = L_{\text{reconstruction}} + 0\cdot KL
-$$
+<details>
+<summary>Optional: go deeper</summary>
 
-It is a control. It validates the stochastic encoder/decoder path while showing
-what happens when nothing regularizes the posterior toward the prior.
+Reparameterization writes a sample as
+$z=\mu+\exp(0.5\,\mathrm{logvar})\epsilon$, with independent standard-normal noise.
+For a fixed noise sample, this is differentiable in the center and spread;
+reconstruction gradients can train both. `logvar` stores log variance, not
+standard deviation. See the [gradient reference](../lessons/06-vae-control.md).
+</details>
 
-Predict:
-
-- Reconstruction quality relative to the standard VAE.
-- Raw KL magnitude.
-- Number of active latent dimensions.
-- Quality of $N(0,I)$ samples.
-
-## Run
-
-```bash
-uv run course-aiml-autoencoders train recipes/vae/vae-000-kl-off.yaml
-uv run course-aiml-autoencoders inspect <PRINTED_RUN_DIR>
-```
-
-## Inspect
-
-- `validation/reconstruction_loss`
-- Raw `validation/kl_loss`
-- `validation/weighted_kl_loss`, which must be zero
-- `kl-per-dimension.png`
-- `random-latent-samples.png`
-
-The BCE reconstruction is summed per sample, not averaged per pixel. Do not
-compare its numeric value directly with AE mean MSE.
-
-## Advancement gate
-
-Explain:
-
-1. Why the reparameterization expression is differentiable with respect to
-   $\mu$ and `logvar`.
-2. Why a computed but unweighted KL can become large.
-3. Why this model still cannot be trusted to decode $N(0,I)$ samples.
+**Next:** [Lesson 07](../notebooks/07-standard-vae.ipynb).

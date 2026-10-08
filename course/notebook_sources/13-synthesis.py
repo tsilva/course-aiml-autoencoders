@@ -12,133 +12,137 @@
 # ---
 
 # %% [markdown]
-# # Lesson 13 — Final comparison and teach-back
+# # Lesson 13 — Choose a representation for a task
 #
-# **Learning objective:** choose AE, VAE, or VQ-VAE from the required latent
-# semantics, evidence, and known failure modes.
+# **Learning objective:** select a model from required behavior and diagnose contradictory evidence.
 #
-# Choose a model family from requirements and failure modes, not from one
-# universal leaderboard.
+# Choose the mechanism the task needs: an AE for input-conditioned
+# reconstruction, a VAE for regularized continuous sampling, or a VQ-VAE for
+# visual tokens plus a learned prior for generation. Finish with one choice and
+# one unfamiliar failure case. A report, seed sweep, and extra application are
+# optional extensions.
+
+# %% [markdown]
+# ## Setup
+#
+# Run this cell first. In Colab it fetches the course code automatically;
+# locally it uses your checkout. The lessons use short CPU experiments.
 
 # %%
-from IPython.display import Image, display
+import os
+from pathlib import Path
+import subprocess
+import sys
 
+# Find an existing checkout before fetching one in a fresh Colab session.
+_start = Path.cwd().resolve()
+_course_root = next((
+    candidate for candidate in (_start, *_start.parents)
+    if (candidate / "course/curriculum.yaml").is_file()
+    and (candidate / "src/course_aiml_autoencoders").is_dir()
+), None)
+if _course_root is None:
+    try:
+        import google.colab
+    except ImportError as error:
+        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
+    _course_root = _start / "course-aiml-autoencoders"
+    if not _course_root.exists():
+        subprocess.run([
+            "git", "clone", "--depth", "1", "--branch", "main",
+            "https://github.com/tsilva/course-aiml-autoencoders.git",
+            str(_course_root),
+        ], check=True)
+    if not (_course_root / "course/curriculum.yaml").is_file():
+        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
+os.chdir(_course_root)
+_course_src = str(_course_root / "src")
+if _course_src not in sys.path:
+    sys.path.insert(0, _course_src)
+print("Course ready:", _course_root)
+
+# %%
+import matplotlib.pyplot as plt
+import torch
+from IPython.display import Image, display
+from course_aiml_autoencoders.config import load_yaml, with_overrides
 from course_aiml_autoencoders.course import (
-    latest_run_dir,
-    load_run_summary,
-    repository_root,
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
+)
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
 )
 
 ROOT = repository_root()
-finalists = {
-    "AE": latest_run_dir(
-        ROOT / "runs", "ae/ae-002-nonlinearity/nonlinear"
-    ),
-    "VAE": latest_run_dir(ROOT / "runs", "vae/vae-001-basic"),
-    "VQ-VAE": latest_run_dir(ROOT / "runs", "vqvae/vqvae-001-basic"),
-    "token prior": latest_run_dir(ROOT / "runs", "prior/prior-001-gru"),
-}
-finalists
+torch.manual_seed(0)
+PROFILE = "quick"
 
 # %% [markdown]
-# ## Verify provenance before comparing
+# ## Predict before running
 #
-# Every metric and image must come from the same exact run as its resolved
-# configuration and checkpoint. Do not mix a final checkpoint from one variant
-# with diagnostics from another.
-
-# %%
-summaries = {
-    family: load_run_summary(run_dir)
-    for family, run_dir in finalists.items()
-}
-summaries
-
-# %% [markdown]
-# ## Build the comparison from mechanisms
-#
-# Mentally reconstruct this table before reading your old notes:
-#
-# | Question | AE | VAE | VQ-VAE |
-# |---|---|---|---|
-# | Latent type | | | |
-# | Bottleneck mechanism | | | |
-# | Reconstruction evidence | | | |
-# | Utilization diagnostic | | | |
-# | Can sample directly? | | | |
-# | Additional prior required? | | | |
-# | Main collapse mode | | | |
-# | Best use case | | | |
+# A product needs compact discrete image tokens for another model. Which family fits, and what evidence would you inspect?
 #
 # <details>
-# <summary>Reveal a compact comparison</summary>
+# <summary>Reveal the expected reasoning</summary>
 #
-# | Question | AE | VAE | VQ-VAE |
-# |---|---|---|---|
-# | Latent type | deterministic continuous | stochastic continuous | spatial discrete indices |
-# | Bottleneck mechanism | dimension/task/regularization | KL-priced information rate | nearest codebook entry |
-# | Utilization diagnostic | latent activity/geometry | per-dimension raw KL | usage, dead codes, perplexity |
-# | Can sample directly? | no known prior | approximately from $N(0,I)$ | not coherently from uniform codes |
-# | Additional prior required? | yes for generation | usually no | yes, over token grids |
-# | Main collapse mode | identity or constant mapping | posterior collapse | codebook collapse/dead codes |
-# | Best use case | reconstruction/denoising | continuous probabilistic latents | discrete visual tokens |
+# VQ-VAE. Check reconstruction, token maps, and global vocabulary usage. If the product also generates images, evaluate a prior paired with that exact representation.
 # </details>
-#
-# Total objectives are not comparable across these families. Observation models,
-# reductions, and auxiliary loss terms differ.
 
 # %%
-for family in ("AE", "VAE", "VQ-VAE"):
-    run_dir = finalists[family]
-    print(family, run_dir)
+# These calls reuse the same configurations inspected in earlier lessons.
+finalists = {
+    "AE": learn("recipes/ae/ae-002-nonlinear.yaml", profile=PROFILE),
+    "VAE": learn("recipes/vae/vae-001-basic.yaml", profile=PROFILE),
+    "VQ-VAE": learn("recipes/vqvae/vqvae-001-basic.yaml", profile=PROFILE),
+}
+for family, run_dir in finalists.items():
+    print(family, "exact run:", run_dir)
     display(Image(filename=str(run_dir / "figures/reconstructions.png")))
 
 # %% [markdown]
-# ## Match requirements to evidence
+# The pictures expose representation tradeoffs; they do not define a fair
+# cross-family leaderboard. Architectures and training objectives differ.
 #
-# Answer before revealing your prior conclusions:
+# | Need | Starting choice | First evidence |
+# |---|---|---|
+# | Recover clean images from matched noise | Denoising AE | Noisy-input output scored against clean targets |
+# | Generate using a known continuous prior | VAE | Reconstruction, latent dependence, prior samples |
+# | Encode reusable discrete visual symbols | VQ-VAE | Reconstruction, token maps, global code usage |
+# | Generate coherent token arrangements | VQ-VAE + prior | Validation likelihood and sampled arrangements |
 #
-# 1. Which model would you choose for denoising?
-# 2. Which supports a deliberately regularized continuous sampling prior?
-# 3. Which learns reusable discrete visual tokens?
-# 4. Which extra model makes VQ-VAE samples coherent?
-# 5. Which first failure metric or figure would you inspect for each?
+# Explain your chosen mechanism in one sentence, then name the evidence that
+# would make you change your choice. No written worksheet is required.
+
+# %% [markdown]
+# ## Advancement gate — transfer check
+#
+# An unfamiliar VAE has high KL, excellent reconstruction, and poor prior samples. What single next check would distinguish useful input information from prior mismatch?
 #
 # <details>
-# <summary>Reveal one defensible mapping</summary>
+# <summary>Reveal the expected reasoning</summary>
 #
-# 1. A denoising AE for explicit corrupted-input to clean-target reconstruction.
-# 2. A VAE for a regularized continuous prior.
-# 3. A VQ-VAE for discrete visual tokens.
-# 4. An autoregressive token prior for coherent VQ-VAE token arrangements.
-# 5. AE: aligned reconstructions and baseline-relative MSE. VAE: reconstruction
-#    plus raw/per-dimension KL and prior samples. VQ-VAE: reconstruction,
-#    codebook usage/perplexity, token maps, and learned-prior samples.
+# Inspect the encoded aggregate distribution versus the sampling prior, or test a controlled change in beta. High KL alone does not mean useful representation capacity; it also includes aggregate mismatch. Avoid changing architecture, data, and beta together.
 # </details>
 
 # %% [markdown]
-# ## Confirmation discipline
+# <details>
+# <summary>Optional: go deeper</summary>
 #
-# One run is enough to understand mechanics. A close ranking requires repeated
-# seeds. Repeat only the finalists whose ordering would change your conclusion,
-# then report mean, variation, qualitative consistency, and seed-specific
-# failures.
+# For a durable claim, run only the relevant two variants over seeds 0, 1,
+# and 2, report mean and variation, and inspect seed-specific failures. Use
+# [WORKSHEET.md](../WORKSHEET.md) only when preserving a research conclusion.
 #
-# ## Ten-minute teach-back
+# For a downstream extension, freeze the encoder and compare a classifier or
+# retrieval probe on latent features with raw pixels and PCA. Keep identical
+# splits and assess the task rather than assuming reconstruction implies utility.
 #
-# Explain without notes:
-#
-# 1. Why a loss needs an input-independent baseline.
-# 2. Why an AE reconstructs but lacks a known prior.
-# 3. How reparameterization enables VAE gradients.
-# 4. Why KL creates a rate–distortion tradeoff.
-# 5. How posterior collapse appears in numbers and images.
-# 6. How VQ nearest-neighbor selection becomes trainable.
-# 7. Why nominal codebook size differs from effective usage.
-# 8. Why a VQ-VAE needs a token prior.
-#
-# ## Completion criterion
-#
-# You are done when you can predict the major metric and visual changes before a
-# beta, bottleneck, or codebook ablation—and respond to a contradictory result
-# with one controlled next experiment.
+# Use `build_test_dataloader` for final confirmation after choosing the model.
+# The official test split is reserved; routine training and selection use a fixed
+# holdout from the original training split. Do not tune again on test results.
+# </details>
+
+# %% [markdown]
+# **Finished:** revisit the one concept you could not explain, or choose an optional extension in the [course guide](../README.md).

@@ -12,167 +12,133 @@
 # ---
 
 # %% [markdown]
-# # Lesson 03 — Nonlinearity and bottleneck capacity
+# # Lesson 03 — Let the reconstruction sheet bend
 #
-# **Learning objective:** separate representational geometry from the amount of
-# information allowed through the latent bottleneck.
+# **Learning objective:** separate nonlinear geometry from bottleneck size.
 #
-# Two different changes are often called “more capacity”:
+# A linear decoder builds everything from one flat set of directions. Nonlinear
+# layers let the mapping bend and respond differently in different regions.
+# Keep the eight-number bottleneck fixed and change only the hidden-layer setup.
+# The larger parameter count remains a confound; this tests two architectures,
+# not the isolated effect of an activation function.
+
+# %% [markdown]
+# ## Setup
 #
-# 1. Nonlinear layers change the geometry the model can represent.
-# 2. More latent coordinates increase the information that can cross the
-#    bottleneck.
-#
-# These are separate scientific questions, so we probe them in separate studies.
+# Run this cell first. In Colab it fetches the course code automatically;
+# locally it uses your checkout. The lessons use short CPU experiments.
 
 # %%
-import json
+import os
+from pathlib import Path
 import subprocess
 import sys
 
-import matplotlib.pyplot as plt
-from IPython.display import Image, display
+# Find an existing checkout before fetching one in a fresh Colab session.
+_start = Path.cwd().resolve()
+_course_root = next((
+    candidate for candidate in (_start, *_start.parents)
+    if (candidate / "course/curriculum.yaml").is_file()
+    and (candidate / "src/course_aiml_autoencoders").is_dir()
+), None)
+if _course_root is None:
+    try:
+        import google.colab
+    except ImportError as error:
+        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
+    _course_root = _start / "course-aiml-autoencoders"
+    if not _course_root.exists():
+        subprocess.run([
+            "git", "clone", "--depth", "1", "--branch", "main",
+            "https://github.com/tsilva/course-aiml-autoencoders.git",
+            str(_course_root),
+        ], check=True)
+    if not (_course_root / "course/curriculum.yaml").is_file():
+        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
+os.chdir(_course_root)
+_course_src = str(_course_root / "src")
+if _course_src not in sys.path:
+    sys.path.insert(0, _course_src)
+print("Course ready:", _course_root)
 
-from course_aiml_autoencoders.config import load_yaml
-from course_aiml_autoencoders.course import repository_root
+# %%
+import matplotlib.pyplot as plt
+import torch
+from IPython.display import Image, display
+from course_aiml_autoencoders.config import load_yaml, with_overrides
+from course_aiml_autoencoders.course import (
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
+)
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
+)
 
 ROOT = repository_root()
-nonlinearity_study = load_yaml(
-    ROOT / "studies/ae/ae-002-nonlinearity.yaml"
-)
-capacity_study = load_yaml(
-    ROOT / "studies/ae/ae-003-latent-capacity.yaml"
-)
-nonlinearity_study
+torch.manual_seed(0)
+PROFILE = "quick"
 
 # %% [markdown]
-# ## Prediction A — same bottleneck, different geometry
+# The default uses eight CPU epochs on 2,048 training images and 512 held-out
+# images. A matching completed run is reused automatically; its exact path and
+# measured duration are printed. These short runs expose mechanisms, not settled
+# rankings. The first Fashion-MNIST lesson downloads the dataset once.
 #
-# Predict the direction of validation MSE for the linear and nonlinear models.
-# Then name the confound that remains even though latent dimension is controlled.
+# Set `PROFILE = "full"` for the original training budget; `learn(..., rerun=True)`
+# creates fresh evidence. You can return to the prediction while training runs.
+
+# %% [markdown]
+# ## Predict before running
+#
+# With eight sliders in both models, can nonlinear layers still improve reconstruction?
 #
 # <details>
 # <summary>Reveal the expected reasoning</summary>
 #
-# The nonlinear model should usually achieve lower reconstruction MSE because
-# it can represent curved mappings rather than one linear subspace. Parameter
-# count is a remaining confound: the hidden layers add many weights, so this is
-# not an isolated “effect of ReLU.”
+# Yes: the mapping can represent more complex structure at the same latent dimension. Improvement is empirical, and added parameters also contribute.
 # </details>
 
 # %%
-subprocess.run(
-    [
-        sys.executable,
-        "-m",
-        "course_aiml_autoencoders.cli",
-        "study",
-        str(ROOT / "studies/ae/ae-002-nonlinearity.yaml"),
-        "--seeds",
-        "0",
-    ],
-    cwd=ROOT,
-    check=True,
-)
-
-# %%
-summary_path = sorted(
-    (ROOT / "runs" / nonlinearity_study["id"]).glob("study-summary-*.json")
-)[-1]
-summary = json.loads(summary_path.read_text())
-for record in summary["records"]:
-    run_summary = json.loads(
-        (ROOT / record["run_dir"] / "summary.json").read_text()
-    )
-    print(
-        record["variant"],
-        "MSE=", f"{record['primary_metric_value']:.6f}",
-        "parameters=", run_summary["parameter_count"],
-    )
-    display(
-        Image(
-            filename=str(
-                ROOT / record["run_dir"] / "figures/reconstructions.png"
-            )
-        )
-    )
+linear_dir = learn("recipes/ae/ae-001-linear.yaml", profile=PROFILE)
+nonlinear_dir = learn("recipes/ae/ae-002-nonlinear.yaml", profile=PROFILE)
+for name, run_dir in (("linear", linear_dir), ("nonlinear", nonlinear_dir)):
+    summary = load_run_summary(run_dir)
+    print(name, "MSE:", summary["best_validation_metrics"]["validation/reconstruction_loss"],
+          "parameters:", summary["parameter_count"])
+    display(Image(filename=str(run_dir / "figures/reconstructions.png")))
 
 # %% [markdown]
-# A lower reconstruction loss establishes that the nonlinear model preserved
-# more pixel information under this training setup. It does not establish that
-# the representation is more disentangled, robust, or useful downstream.
+# Compare the same validation examples. Did edges or class-specific shape
+# improve? A better pixel score supports reconstruction usefulness under this
+# setup, not automatic disentanglement or downstream utility.
 #
-# The comparison also changes parameter count. Record that limitation rather
-# than silently calling the result “the effect of ReLU.”
+# More latent coordinates are a separate change: they let more information pass.
+# A bottleneck of 784 with sufficient flexibility may allow copying, removing
+# the pressure to find a compact summary.
 
 # %% [markdown]
-# ## Prediction B — bottleneck size
+# ## Advancement gate — transfer check
 #
-# Sketch validation MSE for latent sizes 2, 8, 32, and 128. Do you expect equal
-# improvement from each step?
+# A 128-dimensional model beats an eight-dimensional one. Is it the better representation?
 #
 # <details>
 # <summary>Reveal the expected reasoning</summary>
 #
-# Reconstruction MSE should fall as latent size grows, usually with diminishing
-# returns. Very small latents discard substantial structure; very large latents
-# approach identity copying and weaken the compression pressure. Exact curve
-# shape remains an empirical result.
+# It is better on the measured reconstruction task. Compression, robustness, generation, and downstream usefulness still require separate evidence.
 # </details>
 
-# %%
-subprocess.run(
-    [
-        sys.executable,
-        "-m",
-        "course_aiml_autoencoders.cli",
-        "study",
-        str(ROOT / "studies/ae/ae-003-latent-capacity.yaml"),
-        "--seeds",
-        "0",
-    ],
-    cwd=ROOT,
-    check=True,
-)
-
-# %%
-capacity_summary_path = sorted(
-    (ROOT / "runs" / capacity_study["id"]).glob("study-summary-*.json")
-)[-1]
-capacity_summary = json.loads(capacity_summary_path.read_text())
-dimensions = [
-    int(record["variant"].split("-")[-1])
-    for record in capacity_summary["records"]
-]
-losses = [
-    record["primary_metric_value"]
-    for record in capacity_summary["records"]
-]
-figure, axis = plt.subplots(figsize=(7, 4))
-axis.plot(dimensions, losses, marker="o")
-axis.set(
-    xscale="log",
-    xlabel="Latent dimensions",
-    ylabel="Validation reconstruction MSE",
-    title="Capacity helps reconstruction, usually with diminishing returns",
-)
-axis.grid(alpha=0.25)
-figure.tight_layout()
+# %% [markdown]
+# <details>
+# <summary>Optional: go deeper</summary>
+#
+# Run the full latent-size sweep:
+# `uv run course-aiml-autoencoders study studies/ae/ae-003-latent-capacity.yaml --seeds 0`.
+# Vary only latent size. Expect possible diminishing returns; inspect the result
+# before concluding. The original nonlinearity study is also available in
+# `studies/ae/ae-002-nonlinearity.yaml`.
+# </details>
 
 # %% [markdown]
-# ## Deliberately challenge the objective
-#
-# Imagine a latent dimension of 784 with a sufficiently flexible encoder and
-# decoder. Copying the input can become easier, but the bottleneck no longer
-# forces compression. A reconstruction objective alone cannot tell whether that
-# representation is useful for classification, robustness, or generation.
-#
-# ## Advancement gate
-#
-# Explain why “bigger latent is better” is incomplete. Mention:
-#
-# - the optimized task,
-# - compression,
-# - parameter-count confounding,
-# - downstream usefulness,
-# - and the identity-mapping failure mode.
+# **Next:** [Lesson 04](04-regularized-ae.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/04-regularized-ae.ipynb). No worksheet is required.

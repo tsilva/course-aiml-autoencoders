@@ -12,125 +12,138 @@
 # ---
 
 # %% [markdown]
-# # Lesson 12 — Turn VQ-VAE tokens into a generative model
+# # Lesson 12 — Learn which token arrangements belong together
 #
-# **Learning objective:** separate representation learning from modeling a
-# probability distribution over valid discrete token arrangements.
+# **Learning objective:** separate learning a visual vocabulary from learning a sampling distribution.
 #
-# Representation learning produces discrete token grids:
-#
-# $$
-# x\rightarrow z_e\rightarrow k_{1:H,1:W}\rightarrow\hat{x}
-# $$
-#
-# A separate prior learns which arrangements are likely:
-#
-# $$
-# p(k_1,\ldots,k_N)=\prod_{i=1}^{N}p(k_i\mid k_{<i})
-# $$
-
-# %%
-import math
-
-from IPython.display import Image, display
-
-from course_aiml_autoencoders.config import load_yaml
-from course_aiml_autoencoders.course import (
-    latest_run_dir,
-    load_metrics,
-    load_run_summary,
-    plot_metric_history,
-    repository_root,
-)
-from course_aiml_autoencoders.training import run_code_prior_training
-
-ROOT = repository_root()
-vq_run_dir = latest_run_dir(ROOT / "runs", "vqvae/vqvae-001-basic")
-vq_checkpoint = vq_run_dir / "checkpoint-best.pt"
-vq_summary = load_run_summary(vq_run_dir)
-print("chosen VQ-VAE:", vq_run_dir)
-display(
-    Image(
-        filename=str(
-            vq_run_dir / "figures/uniform-random-token-samples.png"
-        )
-    )
-)
+# A vocabulary tells us what symbols mean. A prior learns which symbol should
+# come next, given the symbols already present. Scanning the token grid row by
+# row lets a small GRU learn these dependencies while the VQ encoder and decoder
+# stay frozen. Training supplies the true previous tokens; sampling supplies the
+# prior's own previous choices.
 
 # %% [markdown]
-# Uniform random tokens ask the wrong question: “What if every code at every
-# position were independent and equally likely?” The learned prior instead
-# models token arrangements emitted by the frozen encoder.
+# ## Setup
 #
-# ## Predict before training
+# Run this cell first. In Colab it fetches the course code automatically;
+# locally it uses your checkout. The lessons use short CPU experiments.
+
+# %%
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+# Find an existing checkout before fetching one in a fresh Colab session.
+_start = Path.cwd().resolve()
+_course_root = next((
+    candidate for candidate in (_start, *_start.parents)
+    if (candidate / "course/curriculum.yaml").is_file()
+    and (candidate / "src/course_aiml_autoencoders").is_dir()
+), None)
+if _course_root is None:
+    try:
+        import google.colab
+    except ImportError as error:
+        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
+    _course_root = _start / "course-aiml-autoencoders"
+    if not _course_root.exists():
+        subprocess.run([
+            "git", "clone", "--depth", "1", "--branch", "main",
+            "https://github.com/tsilva/course-aiml-autoencoders.git",
+            str(_course_root),
+        ], check=True)
+    if not (_course_root / "course/curriculum.yaml").is_file():
+        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
+os.chdir(_course_root)
+_course_src = str(_course_root / "src")
+if _course_src not in sys.path:
+    sys.path.insert(0, _course_src)
+print("Course ready:", _course_root)
+
+# %%
+import matplotlib.pyplot as plt
+import torch
+from IPython.display import Image, display
+from course_aiml_autoencoders.config import load_yaml, with_overrides
+from course_aiml_autoencoders.course import (
+    balanced_class_batch, learn, learn_prior, lesson_config,
+    load_metrics, load_run_summary, load_trained_model,
+    plot_metric_history, repository_root,
+)
+from course_aiml_autoencoders.data import build_dataloaders, class_names
+from course_aiml_autoencoders.diagnostics import (
+    per_example_mse, plot_image_grid, plot_reconstruction_grid,
+)
+
+ROOT = repository_root()
+torch.manual_seed(0)
+PROFILE = "quick"
+
+# %% [markdown]
+# The default uses eight CPU epochs on 2,048 training images and 512 held-out
+# images. A matching completed run is reused automatically; its exact path and
+# measured duration are printed. These short runs expose mechanisms, not settled
+# rankings. The first Fashion-MNIST lesson downloads the dataset once.
 #
-# Compare initial next-token cross-entropy with the uniform baseline $\log K$.
-# Predict validation perplexity and how learned-prior samples will differ from
-# uniform-token samples.
+# Set `PROFILE = "full"` for the original training budget; `learn(..., rerun=True)`
+# creates fresh evidence. You can return to the prediction while training runs.
+
+# %% [markdown]
+# ## Predict before running
+#
+# Will beating a uniform token predictor prove that the prior learned spatial dependencies?
 #
 # <details>
 # <summary>Reveal the expected reasoning</summary>
 #
-# An untrained prior should begin near $\log K$ cross-entropy and perplexity
-# $K$. Learning spatial/token dependencies should reduce both below the uniform
-# reference. Learned-prior samples should contain more garment-like global
-# arrangements than independent uniform-token samples, though the small raster
-# GRU will remain imperfect.
+# No. Frequent symbols alone can beat uniform prediction. Compare with a training-frequency unigram baseline as well as inspecting generated arrangements.
 # </details>
 
 # %%
-codebook_size = vq_summary["codebook"]["codebook_size"]
-print("uniform-prior cross-entropy log(K):", math.log(codebook_size))
-print("uniform-prior perplexity K:", codebook_size)
-
-# %%
-prior_config = load_yaml(ROOT / "recipes/prior/prior-001-gru.yaml")
-result = run_code_prior_training(
-    prior_config,
-    vq_checkpoint,
-    run_root=ROOT / "runs",
-)
-prior_run_dir = result.run_dir
-load_run_summary(prior_run_dir)
-
-# %%
-_ = plot_metric_history(
-    load_metrics(prior_run_dir),
-    ["train/cross_entropy", "validation/cross_entropy"],
-    title="Teacher-forced autoregressive token prediction",
-)
+vq_run = learn("recipes/vqvae/vqvae-001-basic.yaml", profile=PROFILE)
+prior_run = learn_prior("recipes/prior/prior-001-gru.yaml", vq_run, profile=PROFILE)
+summary = load_run_summary(prior_run)
+print("Uniform CE:", summary["uniform_cross_entropy"],
+      "training-frequency unigram CE:", summary["unigram_cross_entropy"],
+      "learned-prior validation CE:", summary["best_validation_cross_entropy"])
+_ = plot_metric_history(load_metrics(prior_run), ["train/cross_entropy", "validation/cross_entropy"])
+display(Image(filename=str(vq_run / "figures/uniform-random-token-samples.png")))
+display(Image(filename=str(prior_run / "figures/learned-prior-samples.png")))
 
 # %% [markdown]
-# ## Compare the two sampling distributions
-
-# %%
-print("uniform independent tokens")
-display(
-    Image(
-        filename=str(
-            vq_run_dir / "figures/uniform-random-token-samples.png"
-        )
-    )
-)
-print("learned autoregressive prior")
-display(
-    Image(
-        filename=str(
-            prior_run_dir / "figures/learned-prior-samples.png"
-        )
-    )
-)
+# Better validation likelihood than the unigram baseline supports learning
+# structure beyond overall symbol frequency, but is not proof of good generated
+# images. Inspect arrangements and diversity: sampling consumes its own history
+# and can accumulate errors. Short training may reveal only frequency learning.
+#
+# Prior perplexity measures next-token uncertainty given history; codebook
+# perplexity measures assignment diversity. They share a name but answer
+# different questions. The prior cannot restore information discarded by the
+# frozen VQ representation.
 
 # %% [markdown]
-# Prior perplexity is uncertainty in the *next token conditioned on previous
-# tokens*. Codebook perplexity is diversity of encoder assignments. They answer
-# different questions despite sharing a name.
+# ## Advancement gate — transfer check
 #
-# The prior cannot restore visual information already discarded by the frozen
-# VQ-VAE. It only models the distribution over the tokens that remain.
+# The prior improves dramatically, but generated images still lack fine detail. Which stage might be the bottleneck?
 #
-# ## Advancement gate
+# <details>
+# <summary>Reveal the expected reasoning</summary>
 #
-# Explain why the encoder and decoder can stay frozen, why teacher forcing
-# differs from sampling, and why improved prior likelihood cannot repair a
-# lossy representation.
+# The VQ encoder/codebook/decoder may have discarded that detail. A better token distribution cannot recover information absent from the representation.
+# </details>
+
+# %% [markdown]
+# <details>
+# <summary>Optional: go deeper</summary>
+#
+# Raster order gives the factorization
+# $p(k_1,\ldots,k_N)=\prod_i p(k_i\mid k_{<i})$.
+# Teacher forcing uses true history during training; sampling uses sampled
+# history. The small GRU is chosen for clarity, not top-tier image quality.
+# Temperature and larger priors are optional investigations; preserve the exact
+# paired VQ checkpoint when comparing them.
+# </details>
+
+# %% [markdown]
+# **Next:** [Lesson 13](13-synthesis.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/13-synthesis.ipynb). No worksheet is required.

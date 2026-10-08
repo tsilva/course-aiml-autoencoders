@@ -16,6 +16,10 @@ objective:
   reconstruction: mse
 
 training:
+  evaluation_corruption:
+    kind: gaussian
+    standard_deviation: 0.3
+    clamp: true
   epochs: 20
   batch_size: 128
   optimizer: adam
@@ -30,4 +34,3 @@ training:
 
 diagnostics:
   max_latent_points: 2000
-
