@@ -1,5 +1,5 @@
 ---
-name: validate-colab-notebooks
+name: autoencoders-course_validate-colab-notebooks
 description: Validate all course notebooks, or a specified lesson, in a real Google Colab runtime, checking complete execution and expected numerical and visual learning results. Use for Colab compatibility checks and notebook verification in this repository.
 ---
 
@@ -21,9 +21,9 @@ uv run --frozen python scripts/build_notebooks.py --check
 Generate a self-contained validation notebook and provenance manifest:
 
 ```sh
-uv run --frozen python .agents/skills/validate-colab-notebooks/scripts/prepare_validation.py
+uv run --frozen python .agents/skills/autoencoders-course_validate-colab-notebooks/scripts/prepare_validation.py
 # Single lesson; also accepts 02-linear-ae.ipynb or its repository path:
-uv run --frozen python .agents/skills/validate-colab-notebooks/scripts/prepare_validation.py --notebook 02
+uv run --frozen python .agents/skills/autoencoders-course_validate-colab-notebooks/scripts/prepare_validation.py --notebook 02
 ```
 
 The helper prints paths under ignored `runs/colab-validation/`. It embeds the

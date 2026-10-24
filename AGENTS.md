@@ -27,6 +27,6 @@
 
 ## Project Skills
 
-- Use [validate-colab-notebooks](.agents/skills/validate-colab-notebooks/SKILL.md)
+- Use [autoencoders-course_validate-colab-notebooks](.agents/skills/autoencoders-course_validate-colab-notebooks/SKILL.md)
   when verifying that all course notebooks, or a specified lesson, run completely
   in Google Colab and produce the expected numerical and visual learning results.

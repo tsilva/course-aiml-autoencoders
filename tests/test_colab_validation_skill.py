@@ -11,7 +11,7 @@ import pytest
 
 
 ROOT = Path(__file__).parents[1]
-SCRIPTS = ROOT / ".agents/skills/validate-colab-notebooks/scripts"
+SCRIPTS = ROOT / ".agents/skills/autoencoders-course_validate-colab-notebooks/scripts"
 SPEC = importlib.util.spec_from_file_location("prepare_colab", SCRIPTS / "prepare_validation.py")
 prepare = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(prepare)
