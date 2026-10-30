@@ -28,3 +28,7 @@ Keep reusable model, objective, training, and plotting logic in
 
 Do not add blank “Your answer” or “Prediction” fields. Put the expected
 reasoning in a collapsed `<details>` block directly beneath the question.
+
+## License
+
+[MIT License](../../LICENSE).

@@ -18,3 +18,7 @@ To execute a copy without modifying this directory:
 ```bash
 uv run python scripts/execute_notebooks.py --profile smoke
 ```
+
+## License
+
+[MIT License](../../LICENSE).

@@ -31,3 +31,7 @@ The README already consumes `../logo.png`. This repository has no website
 integration; favicon, web manifest, and social metadata wiring can use these
 files if a site is added. Light, off-white, dark, and checkerboard previews,
 128/256 px logo previews, and small favicon exports were inspected.
+
+## License
+
+[MIT License](../LICENSE).

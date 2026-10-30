@@ -157,3 +157,7 @@ Notebook conversion is deterministic and output-free. Execution creates your
 own evidence; it never overwrites the distributed notebooks. Explicit lesson
 sets work independently: prerequisite experiments are created or reused by
 configuration when required.
+
+## License
+
+[MIT License](../LICENSE).
