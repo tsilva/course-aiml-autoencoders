@@ -40,7 +40,7 @@ different setup cells: validate those lessons separately so each bootstrap is te
 
 ## Run in actual Colab
 
-Use the native Codex in-app Browser and its documented browser runtime. Read
+Follow the global Browser Use and Testing policy. Read
 [references/browser-workflow.md](references/browser-workflow.md) for upload,
 runtime controls, and evidence collection. Local execution or a mocked
 `google.colab` import is useful preflight, but does not establish a Colab pass.
