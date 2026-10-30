@@ -59,7 +59,13 @@ See the [course guide](course/README.md) for experiment commands and authoring,
 and [troubleshooting](course/TROUBLESHOOTING.md) for setup or training issues.
 The [learning roadmap](docs/ROADMAP.md) and
 [experiment protocol](docs/EXPERIMENT_PROTOCOL.md) cover deeper study.
+The roadmap also holds an optional, unimplemented anomaly-detection idea for
+transferring the reconstruction concepts to a new task.
 
 ## Architecture
 
 ![Course and experiment architecture](./architecture.png)
+
+## License
+
+[MIT License](LICENSE).

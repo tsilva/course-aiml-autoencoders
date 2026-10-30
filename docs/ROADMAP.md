@@ -28,6 +28,13 @@ Pick a question rather than completing this entire list:
 - Full beta sweep, latent traversals, warm-up, and free bits.
 - Codebook-size and commitment sweeps; EMA and dead-code recovery are future work.
 - Frozen-latent classification or retrieval against raw pixels and PCA.
+- Normal-only anomaly detection on tabular data or time-series windows: train
+  on normal examples, select a threshold on a separate calibration split, then
+  compare reconstruction-error scores with a simple baseline on untouched test
+  cases. Inspect false alarms, missed anomalies and split/window leakage; low
+  reconstruction error alone does not establish a useful detector. This is an
+  unimplemented future idea, not a core lesson or training request; choose data,
+  labels and a small budget only when selected.
 - An important two-variant comparison over multiple seeds and final test confirmation.
 
 Convolutional AE variants, EMA codebook updates, larger token priors, and
