@@ -73,8 +73,10 @@ display(Markdown("""
 # %%
 # Start with a black 5 × 5 image.
 target = torch.zeros(1, 1, 5, 5)
+
 # Turn three pixels in the center column white.
 target[0, 0, 1:4, 2] = 1
+
 # Show the image we'll try to reconstruct.
 _ = plot_image_grid(target, title="Target")
 
@@ -87,10 +89,13 @@ _ = plot_image_grid(target, title="Target")
 # %%
 # Choose which row loses its white pixel.
 missing_row = 3
+
 # Copy the target so we can edit the prediction independently.
 missing = target.clone()
+
 # Turn the chosen pixel black.
 missing[0, 0, missing_row, 2] = 0
+
 # Show the shortened line.
 _ = plot_image_grid(missing, title="One pixel missing")
 
@@ -104,10 +109,13 @@ _ = plot_image_grid(missing, title="One pixel missing")
 # %%
 # Choose how many columns to shift.
 shift_pixels = 1
+
 # Shift the target along its horizontal axis.
 shifted = target.roll(shifts=shift_pixels, dims=-1)
+
 # Put the chosen shift in the plot title.
 shift_title = f"Shift of {shift_pixels} columns"
+
 # Show the shifted line.
 _ = plot_image_grid(shifted, title=shift_title)
 
@@ -121,18 +129,25 @@ _ = plot_image_grid(shifted, title=shift_title)
 # %%
 # Choose which prediction to score.
 prediction = shifted
+
 # Subtract the prediction at every pixel.
 pixel_difference = target - prediction
+
 # Square the differences so both signs contribute to the error.
 squared_error = pixel_difference.square()
+
 # Show where the squared errors occur.
 _ = plot_image_grid(squared_error, title="Squared error at each pixel")
+
 # Count the pixels that differ.
 mismatch_count = squared_error.count_nonzero()
+
 # Convert the count to a Python number.
 mismatches = mismatch_count.item()
+
 # Count all pixels in the target.
 pixel_count = target.numel()
+
 # Report how many pixels differ.
 print(f"{mismatches} of {pixel_count} pixels differ")
 
@@ -144,12 +159,16 @@ print(f"{mismatches} of {pixel_count} pixels differ")
 # %%
 # Average the squared errors over every pixel.
 mse_tensor = squared_error.mean()
+
 # Convert the average to a Python number for display.
 mse = mse_tensor.item()
+
 # Add up the squared errors to show the numerator.
 total_error = squared_error.sum()
+
 # Convert the total to a Python number for display.
 error_sum = total_error.item()
+
 # Show the calculation as a fraction and a decimal.
 print(f"MSE = {error_sum:g} / {pixel_count} = {mse:.2f}")
 
@@ -160,6 +179,7 @@ print(f"MSE = {error_sum:g} / {pixel_count} = {mse:.2f}")
 # %%
 # Create a black image with the same shape as the target.
 black_target = torch.zeros_like(target)
+
 # Give each prediction a label.
 candidates = {
     "Exact": target,
@@ -167,14 +187,19 @@ candidates = {
     "Shifted": shifted,
     "All black": black_target,
 }
+
 # Get the names and images to compare.
 named_candidates = candidates.items()
+
 # Score each image against the same target.
 for name, candidate in named_candidates:
+
     # Compute the MSE for this prediction.
     candidate_error = per_example_mse(target, candidate)
+
     # Convert the single score to a Python number.
     candidate_mse = candidate_error.item()
+
     # Print the label and score together.
     print(f"{name:>17}  MSE {candidate_mse:.2f}")
 
@@ -197,14 +222,19 @@ for name, candidate in named_candidates:
 # %%
 # Use the smaller split to keep the lesson quick.
 PROFILE = "quick"
+
 # Load separate image sets for fitting and scoring.
 train_images, validation_images = load_fashion_image_splits(profile=PROFILE)
+
 # Count the training garments.
 train_count = len(train_images)
+
 # Count the validation garments.
 validation_count = len(validation_images)
+
 # Report how many images can go into the average.
 print(f"Training: {train_count:,} images")
+
 # Report how many images are available for scoring.
 print(f"Validation: {validation_count:,} images")
 
@@ -215,6 +245,7 @@ print(f"Validation: {validation_count:,} images")
 # %%
 # Pick the first four training garments.
 training_examples = train_images[:4]
+
 # Show them side by side.
 _ = plot_image_grid(training_examples, title="Training images")
 
@@ -231,12 +262,16 @@ _ = plot_image_grid(training_examples, title="Training images")
 # %%
 # Start by using all the training images.
 average_count = train_count
+
 # Select the images that will contribute to the average.
 images_to_average = train_images[:average_count]
+
 # Average each pixel across garments, keeping the image axis.
 mean_image = images_to_average.mean(dim=0, keepdim=True)
+
 # Put the chosen image count in the plot title.
 average_title = f"Average of {average_count:,} training images"
+
 # Show the resulting mean image.
 _ = plot_image_grid(mean_image, title=average_title)
 
@@ -250,12 +285,16 @@ _ = plot_image_grid(mean_image, title=average_title)
 # %%
 # Choose the first validation garment to show.
 start = 0
+
 # Set the slice boundary four garments later.
 stop = start + 4
+
 # Select this group of held-out garments.
 examples = validation_images[start:stop]
+
 # Use the same mean image as the prediction for each garment.
 example_predictions = mean_image.expand_as(examples)
+
 # Compare the garments, their predictions, and their error maps.
 _ = plot_reconstruction_grid(examples, example_predictions, include_error=True)
 
@@ -268,26 +307,34 @@ _ = plot_reconstruction_grid(examples, example_predictions, include_error=True)
 # %%
 # Make a black image with the same shape as the mean image.
 black_image = torch.zeros_like(mean_image)
+
 # Use the black image for every validation garment.
 black_predictions = black_image.expand_as(validation_images)
+
 # Score the black prediction separately for each garment.
 black_errors = per_example_mse(validation_images, black_predictions)
+
 # Average the black baseline scores across garments.
 black_average = black_errors.mean()
+
 # Convert the average to a Python number for display.
 black_mse = black_average.item()
 
 # Use the mean image for every validation garment.
 mean_predictions = mean_image.expand_as(validation_images)
+
 # Score the mean prediction separately for each garment.
 mean_errors = per_example_mse(validation_images, mean_predictions)
+
 # Average the mean baseline scores across garments.
 mean_average = mean_errors.mean()
+
 # Convert the average to a Python number for display.
 mean_mse = mean_average.item()
 
 # Report the black baseline score.
 print(f"All-black MSE:  {black_mse:.4f}")
+
 # Report the mean baseline score on the same garments.
 print(f"Mean-image MSE: {mean_mse:.4f}")
 
@@ -304,22 +351,31 @@ print(f"Mean-image MSE: {mean_mse:.4f}")
 # %%
 # Choose a brightness multiplier.
 brightness = 1.0
+
 # Scale the mean image's pixel values.
 scaled_mean = brightness * mean_image
+
 # Keep each pixel within the valid brightness range.
 adjusted_mean = scaled_mean.clamp(0, 1)
+
 # Use the adjusted image for every validation garment.
 adjusted_predictions = adjusted_mean.expand_as(validation_images)
+
 # Score the adjusted prediction separately for each garment.
 adjusted_errors = per_example_mse(validation_images, adjusted_predictions)
+
 # Average those scores over the validation split.
 adjusted_average = adjusted_errors.mean()
+
 # Convert the average to a Python number for display.
 adjusted_mse = adjusted_average.item()
+
 # Put the multiplier in the plot title.
 brightness_title = f"Mean image × {brightness:g}"
+
 # Show the adjusted image.
 _ = plot_image_grid(adjusted_mean, title=brightness_title)
+
 # Report how well it predicts the validation images.
 print(f"Validation MSE: {adjusted_mse:.4f}")
 

@@ -28,7 +28,8 @@ Keep reusable model, objective, training, and plotting logic in
 
 In learner-facing cells, default to one operation per line. Give intermediate
 results names so learners can inspect them, and put a brief comment above
-each step explaining what it does.
+each step explaining what it does. Leave one blank line before each comment
+after the first in a cell.
 
 Lesson 01 uses a short loader tagged `course-setup`. It finds or clones the
 course checkout and runs `_setup.py` from disk. The build collapses the loader
