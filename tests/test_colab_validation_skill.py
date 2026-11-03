@@ -20,7 +20,9 @@ SPEC.loader.exec_module(prepare)
 def test_selection_and_exact_snapshot():
     whole = prepare.make_payload(ROOT)
     assert [item["id"] for item in whole["snapshot"]["lessons"]] == [f"{i:02d}" for i in range(14)]
-    assert sum(item["code_cells"] for item in whole["snapshot"]["lessons"]) == 45
+    for item in whole["snapshot"]["lessons"]:
+        original = nbformat.read(ROOT / item["path"], as_version=4)
+        assert item["code_cells"] == sum(cell.cell_type == "code" for cell in original.cells)
     by_id = prepare.make_payload(ROOT, ["02"])
     by_path = prepare.make_payload(ROOT, ["course/notebooks/02-linear-ae.ipynb"])
     assert by_id == by_path

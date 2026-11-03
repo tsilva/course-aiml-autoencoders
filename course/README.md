@@ -10,10 +10,11 @@ You need basic Python, arrays/tensors, and the idea that training adjusts
 weights to reduce an error. Probability and gradient details arrive when they
 help explain behavior. Python 3.11–3.13 and uv are required.
 
-For Colab, use the [curriculum badges](../README.md#curriculum) and choose
-**Runtime → Run all**. Each notebook fetches the course code automatically;
-no extra setup cell is needed. Use its **Open in Colab** link for the next lesson.
-Colab's runtime storage is temporary.
+For Colab, use the [curriculum badges](../README.md#curriculum) and run the
+cells in order. Each notebook fetches the course code in its first cell.
+In Lesson 01, pause after each result and rerun the editable examples before
+moving on. Use the **Open in Colab** link for the next lesson. Colab's runtime
+storage is temporary.
 
 For local use, run from the repository root:
 

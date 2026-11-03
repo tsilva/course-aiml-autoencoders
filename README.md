@@ -32,9 +32,10 @@ Follow lessons 00–13 in order.
 | [12 · Learn which token arrangements belong together](course/notebooks/12-code-prior.ipynb) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/12-code-prior.ipynb) | Learn a token prior; compare prediction baselines and sampling. |
 | [13 · Choose a representation for a task](course/notebooks/13-synthesis.ipynb) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/13-synthesis.ipynb) | Choose an AE, VAE, or VQ-VAE for a task. |
 
-In Colab, select **Runtime → Run all**. The first cell fetches the course code
-and sets up imports automatically. Downloads and experiments disappear when
-the runtime resets.
+In Colab, run the cells in order. Work through Lesson 01 one cell at a time
+so you can inspect each result and try the suggested edits. The first cell
+fetches the course code automatically. Downloads and experiments disappear
+when the runtime resets.
 
 ## Install
 

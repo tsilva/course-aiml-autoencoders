@@ -20,9 +20,12 @@ Often yes: a shift creates errors where the symbol used to be and where it moves
 
 ## Run the revealing experiment
 
-The notebook uses short CPU runs and reuses exact matching completed evidence.
-It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
-core path; use `"full"` for the original budget. No worksheet is required.
+Run one cell at a time. Change the erased pixel or shift amount and inspect
+the squared-error map before averaging it into an MSE. Then average the
+Fashion-MNIST training images, reuse that prediction for different validation
+garments, and compare it with an all-black image on the same validation split.
+The notebook uses the quick data split by default. Set `PROFILE = "full"`
+for the full split. The lesson needs no neural-network training.
 
 ## Advancement gate — transfer check
 

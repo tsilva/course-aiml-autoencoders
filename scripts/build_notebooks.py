@@ -46,6 +46,8 @@ def render_notebook(source_path: Path) -> str:
         tags = sorted(set(cell.metadata.get("tags", [])))
         cell.metadata = {"tags": tags} if tags else {}
         if cell.cell_type == "code":
+            if "hide-input" in tags:
+                cell.metadata["jupyter"] = {"source_hidden": True}
             cell.execution_count = None
             cell.outputs = []
     rendered = nbformat.writes(notebook, version=4)
