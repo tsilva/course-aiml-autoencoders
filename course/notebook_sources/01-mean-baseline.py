@@ -26,7 +26,8 @@
 # %% [markdown]
 # ## Setup
 #
-# Run **Set up the course** once per session, then go straight to the first image.
+# Run **Set up the course** once per session. It shows a reference table for
+# the tools you'll use below. Then go straight to the first image.
 
 # %% tags=["course-setup"]
 from pathlib import Path
@@ -46,10 +47,21 @@ if checkout is None:
 run_path(str(checkout / setup_file))
 
 import torch
+from IPython.display import Markdown, display
 from course_aiml_autoencoders.course.baseline_lesson import load_fashion_image_splits
 from course_aiml_autoencoders.diagnostics import (
     per_example_mse, plot_image_grid, plot_reconstruction_grid,
 )
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `torch` | Creates and manipulates tensors that hold pixel values. |
+| `load_fashion_image_splits` | Loads separate Fashion-MNIST training and validation images. |
+| `per_example_mse` | Computes one mean squared pixel error per image. |
+| `plot_image_grid` | Displays images side by side. |
+| `plot_reconstruction_grid` | Compares original images with their reconstructions and can show where pixels differ. |
+"""))
 
 # %% [markdown]
 # ## 1. Look at the target
