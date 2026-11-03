@@ -43,20 +43,25 @@ def test_every_notebook_bootstraps_before_course_imports():
     assert len(NOTEBOOKS) == 14
     expected = ast.dump(ast.parse(setup_source()))
     for path in NOTEBOOKS:
-        if path != LESSON_ONE:
-            assert ast.dump(ast.parse(setup_source(path))) == expected
+        if path == LESSON_ONE:
+            continue
+        assert ast.dump(ast.parse(setup_source(path))) == expected
         notebook = nbformat.read(path, as_version=4)
         # The actual imports follow setup, preventing the reported Colab error.
         code = [cell.source for cell in notebook.cells if cell.cell_type == "code"]
         assert "from course_aiml_autoencoders" in code[1]
 
 
-def test_lesson_one_setup_starts_collapsed():
+def test_lesson_one_uses_one_collapsed_setup_cell():
     notebook = nbformat.read(LESSON_ONE, as_version=4)
-    setup = next(cell for cell in notebook.cells if cell.cell_type == "code")
+    setup, first_activity, *_ = [cell for cell in notebook.cells if cell.cell_type == "code"]
     assert setup.source.startswith("# @title Set up the course\n")
     assert setup.metadata["cellView"] == "form"
     assert setup.metadata["jupyter"]["source_hidden"] is True
+    assert setup.source.index("run_path(str(checkout / setup_file))") < setup.source.index(
+        "from course_aiml_autoencoders"
+    )
+    assert first_activity.source.startswith("target = ")
 
 
 @pytest.mark.parametrize("notebook", [NOTEBOOKS[0], LESSON_ONE])

@@ -26,8 +26,7 @@
 # %% [markdown]
 # ## Setup
 #
-# Run the collapsed setup cell, then the imports below it. You only need
-# to do this once per session.
+# Run **Set up the course** once per session, then go straight to the first image.
 
 # %% tags=["course-setup"]
 from pathlib import Path
@@ -46,7 +45,6 @@ if checkout is None:
              "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
 run_path(str(checkout / setup_file))
 
-# %%
 import torch
 from course_aiml_autoencoders.course.baseline_lesson import load_fashion_image_splits
 from course_aiml_autoencoders.diagnostics import (
