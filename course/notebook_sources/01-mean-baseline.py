@@ -22,6 +22,8 @@
 #
 # Run one cell at a time. Where you see **Try**, edit the suggested value and
 # rerun that cell. If you change an earlier result, rerun the cells that use it.
+# To inspect an intermediate result, put its variable name on the last line
+# of the cell and rerun it.
 
 # %% [markdown]
 # ## Setup
@@ -69,8 +71,11 @@ display(Markdown("""
 # This line of three white pixels is the image we want to reconstruct.
 
 # %%
+# Start with a black 5 × 5 image.
 target = torch.zeros(1, 1, 5, 5)
+# Turn three pixels in the center column white.
 target[0, 0, 1:4, 2] = 1
+# Show the image we'll try to reconstruct.
 _ = plot_image_grid(target, title="Target")
 
 # %% [markdown]
@@ -80,9 +85,13 @@ _ = plot_image_grid(target, title="Target")
 # and see which pixel disappears. Rows are numbered from 0.
 
 # %%
+# Choose which row loses its white pixel.
 missing_row = 3
+# Copy the target so we can edit the prediction independently.
 missing = target.clone()
+# Turn the chosen pixel black.
 missing[0, 0, missing_row, 2] = 0
+# Show the shortened line.
 _ = plot_image_grid(missing, title="One pixel missing")
 
 # %% [markdown]
@@ -93,9 +102,14 @@ _ = plot_image_grid(missing, title="One pixel missing")
 # mismatched pixels: the shorter line or the shifted line?
 
 # %%
+# Choose how many columns to shift.
 shift_pixels = 1
+# Shift the target along its horizontal axis.
 shifted = target.roll(shifts=shift_pixels, dims=-1)
-_ = plot_image_grid(shifted, title=f"Shift of {shift_pixels} columns")
+# Put the chosen shift in the plot title.
+shift_title = f"Shift of {shift_pixels} columns"
+# Show the shifted line.
+_ = plot_image_grid(shifted, title=shift_title)
 
 # %% [markdown]
 # ## 3. See what MSE counts
@@ -105,10 +119,22 @@ _ = plot_image_grid(shifted, title=f"Shift of {shift_pixels} columns")
 # **Try** changing `prediction` to `missing` and count the bright spots again.
 
 # %%
+# Choose which prediction to score.
 prediction = shifted
-squared_error = (target - prediction).square()
+# Subtract the prediction at every pixel.
+pixel_difference = target - prediction
+# Square the differences so both signs contribute to the error.
+squared_error = pixel_difference.square()
+# Show where the squared errors occur.
 _ = plot_image_grid(squared_error, title="Squared error at each pixel")
-print(f"{squared_error.count_nonzero().item()} of {target.numel()} pixels differ")
+# Count the pixels that differ.
+mismatch_count = squared_error.count_nonzero()
+# Convert the count to a Python number.
+mismatches = mismatch_count.item()
+# Count all pixels in the target.
+pixel_count = target.numel()
+# Report how many pixels differ.
+print(f"{mismatches} of {pixel_count} pixels differ")
 
 # %% [markdown]
 # Average the squared errors across all 25 pixels, including the ones that
@@ -116,22 +142,41 @@ print(f"{squared_error.count_nonzero().item()} of {target.numel()} pixels differ
 # can you predict the score from the image above?
 
 # %%
-mse = squared_error.mean().item()
-print(f"MSE = {squared_error.sum().item():g} / {target.numel()} = {mse:.2f}")
+# Average the squared errors over every pixel.
+mse_tensor = squared_error.mean()
+# Convert the average to a Python number for display.
+mse = mse_tensor.item()
+# Add up the squared errors to show the numerator.
+total_error = squared_error.sum()
+# Convert the total to a Python number for display.
+error_sum = total_error.item()
+# Show the calculation as a fraction and a decimal.
+print(f"MSE = {error_sum:g} / {pixel_count} = {mse:.2f}")
 
 # %% [markdown]
 # Compare the scores side by side. A perfect copy and an all-black image
 # give us two more reference points.
 
 # %%
+# Create a black image with the same shape as the target.
+black_target = torch.zeros_like(target)
+# Give each prediction a label.
 candidates = {
     "Exact": target,
     "One pixel missing": missing,
     "Shifted": shifted,
-    "All black": torch.zeros_like(target),
+    "All black": black_target,
 }
-for name, candidate in candidates.items():
-    print(f"{name:>17}  MSE {per_example_mse(target, candidate).item():.2f}")
+# Get the names and images to compare.
+named_candidates = candidates.items()
+# Score each image against the same target.
+for name, candidate in named_candidates:
+    # Compute the MSE for this prediction.
+    candidate_error = per_example_mse(target, candidate)
+    # Convert the single score to a Python number.
+    candidate_mse = candidate_error.item()
+    # Print the label and score together.
+    print(f"{name:>17}  MSE {candidate_mse:.2f}")
 
 # %% [markdown]
 # <details>
@@ -150,17 +195,28 @@ for name, candidate in candidates.items():
 # to fit the prediction separate from the ones used to score it.
 
 # %%
+# Use the smaller split to keep the lesson quick.
 PROFILE = "quick"
+# Load separate image sets for fitting and scoring.
 train_images, validation_images = load_fashion_image_splits(profile=PROFILE)
-print(f"Training: {len(train_images):,} images")
-print(f"Validation: {len(validation_images):,} images")
+# Count the training garments.
+train_count = len(train_images)
+# Count the validation garments.
+validation_count = len(validation_images)
+# Report how many images can go into the average.
+print(f"Training: {train_count:,} images")
+# Report how many images are available for scoring.
+print(f"Validation: {validation_count:,} images")
 
 # %% [markdown]
 # Look at a few training images before averaging them. Which bright regions
 # do several garments have in common?
 
 # %%
-_ = plot_image_grid(train_images[:4], title="Training images")
+# Pick the first four training garments.
+training_examples = train_images[:4]
+# Show them side by side.
+_ = plot_image_grid(training_examples, title="Training images")
 
 # %% [markdown]
 # ## 5. Average the training images
@@ -170,12 +226,19 @@ _ = plot_image_grid(train_images[:4], title="Training images")
 # holds the images, so `mean(dim=0)` averages across garments.
 #
 # **Try** changing `average_count` to 1 or 16. What changes as more garments
-# go into the average? Restore `len(train_images)` for the baseline.
+# go into the average? Restore `train_count` for the baseline.
 
 # %%
-average_count = len(train_images)
-mean_image = train_images[:average_count].mean(dim=0, keepdim=True)
-_ = plot_image_grid(mean_image, title=f"Average of {average_count:,} training images")
+# Start by using all the training images.
+average_count = train_count
+# Select the images that will contribute to the average.
+images_to_average = train_images[:average_count]
+# Average each pixel across garments, keeping the image axis.
+mean_image = images_to_average.mean(dim=0, keepdim=True)
+# Put the chosen image count in the plot title.
+average_title = f"Average of {average_count:,} training images"
+# Show the resulting mean image.
+_ = plot_image_grid(mean_image, title=average_title)
 
 # %% [markdown]
 # ## 6. Give every garment the same prediction
@@ -185,9 +248,16 @@ _ = plot_image_grid(mean_image, title=f"Average of {average_count:,} training im
 # Which parts of the error map change when the prediction stays fixed?
 
 # %%
+# Choose the first validation garment to show.
 start = 0
-examples = validation_images[start:start + 4]
-_ = plot_reconstruction_grid(examples, mean_image.expand_as(examples), include_error=True)
+# Set the slice boundary four garments later.
+stop = start + 4
+# Select this group of held-out garments.
+examples = validation_images[start:stop]
+# Use the same mean image as the prediction for each garment.
+example_predictions = mean_image.expand_as(examples)
+# Compare the garments, their predictions, and their error maps.
+_ = plot_reconstruction_grid(examples, example_predictions, include_error=True)
 
 # %% [markdown]
 # ## 7. Score both baselines on the same held-out images
@@ -196,11 +266,30 @@ _ = plot_reconstruction_grid(examples, mean_image.expand_as(examples), include_e
 # Predict which one will score lower before running the cell.
 
 # %%
+# Make a black image with the same shape as the mean image.
 black_image = torch.zeros_like(mean_image)
-black_mse = per_example_mse(validation_images, black_image.expand_as(validation_images)).mean()
-mean_mse = per_example_mse(validation_images, mean_image.expand_as(validation_images)).mean()
-print(f"All-black MSE:  {black_mse.item():.4f}")
-print(f"Mean-image MSE: {mean_mse.item():.4f}")
+# Use the black image for every validation garment.
+black_predictions = black_image.expand_as(validation_images)
+# Score the black prediction separately for each garment.
+black_errors = per_example_mse(validation_images, black_predictions)
+# Average the black baseline scores across garments.
+black_average = black_errors.mean()
+# Convert the average to a Python number for display.
+black_mse = black_average.item()
+
+# Use the mean image for every validation garment.
+mean_predictions = mean_image.expand_as(validation_images)
+# Score the mean prediction separately for each garment.
+mean_errors = per_example_mse(validation_images, mean_predictions)
+# Average the mean baseline scores across garments.
+mean_average = mean_errors.mean()
+# Convert the average to a Python number for display.
+mean_mse = mean_average.item()
+
+# Report the black baseline score.
+print(f"All-black MSE:  {black_mse:.4f}")
+# Report the mean baseline score on the same garments.
+print(f"Mean-image MSE: {mean_mse:.4f}")
 
 # %% [markdown]
 # The mean image can score well because the garments share a dark background
@@ -213,11 +302,26 @@ print(f"Mean-image MSE: {mean_mse.item():.4f}")
 # each will do to the score, then rerun just this cell to see the effect.
 
 # %%
+# Choose a brightness multiplier.
 brightness = 1.0
-adjusted_mean = (brightness * mean_image).clamp(0, 1)
-adjusted_mse = per_example_mse(validation_images, adjusted_mean.expand_as(validation_images)).mean()
-_ = plot_image_grid(adjusted_mean, title=f"Mean image × {brightness:g}")
-print(f"Validation MSE: {adjusted_mse.item():.4f}")
+# Scale the mean image's pixel values.
+scaled_mean = brightness * mean_image
+# Keep each pixel within the valid brightness range.
+adjusted_mean = scaled_mean.clamp(0, 1)
+# Use the adjusted image for every validation garment.
+adjusted_predictions = adjusted_mean.expand_as(validation_images)
+# Score the adjusted prediction separately for each garment.
+adjusted_errors = per_example_mse(validation_images, adjusted_predictions)
+# Average those scores over the validation split.
+adjusted_average = adjusted_errors.mean()
+# Convert the average to a Python number for display.
+adjusted_mse = adjusted_average.item()
+# Put the multiplier in the plot title.
+brightness_title = f"Mean image × {brightness:g}"
+# Show the adjusted image.
+_ = plot_image_grid(adjusted_mean, title=brightness_title)
+# Report how well it predicts the validation images.
+print(f"Validation MSE: {adjusted_mse:.4f}")
 
 # %% [markdown]
 # ## Advancement gate — transfer check

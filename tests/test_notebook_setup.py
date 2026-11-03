@@ -61,7 +61,8 @@ def test_lesson_one_uses_one_collapsed_setup_cell():
     assert setup.source.index("run_path(str(checkout / setup_file))") < setup.source.index(
         "from course_aiml_autoencoders"
     )
-    assert first_activity.source.startswith("target = ")
+    first_step = ast.parse(first_activity.source).body[0]
+    assert ast.unparse(first_step).startswith("target = torch.zeros(")
 
 
 @pytest.mark.parametrize("notebook", [NOTEBOOKS[0], LESSON_ONE])
