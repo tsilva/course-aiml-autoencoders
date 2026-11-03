@@ -12,7 +12,7 @@
 # ---
 
 # %% [markdown]
-# # Lesson 07 — Give the clouds a shared address system
+# # 🧪 Lesson 07 — Give the clouds a shared address system
 #
 # **Learning objective:** explain why prior pressure trades reconstruction detail for easier sampling.
 #
@@ -22,62 +22,41 @@
 # That encourages overlap with places our sampler knows how to visit.
 
 # %% [markdown]
-# ## Setup
+# ## ⚙️ Setup
 #
-# Run this cell first. In Colab it fetches the course code automatically;
-# locally it uses your checkout. The lessons use short CPU experiments.
+# Run **Set up the course** once per session to load the tools below.
+# To inspect an intermediate value, put its name on the last line of
+# its cell and rerun the cell.
 
-# %%
-import os
+# %% tags=["course-setup"]
 from pathlib import Path
-import subprocess
-import sys
+from runpy import run_path
+from subprocess import run
 
-# Find an existing checkout before fetching one in a fresh Colab session.
-_start = Path.cwd().resolve()
-_course_root = next((
-    candidate for candidate in (_start, *_start.parents)
-    if (candidate / "course/curriculum.yaml").is_file()
-    and (candidate / "src/course_aiml_autoencoders").is_dir()
-), None)
-if _course_root is None:
-    try:
-        import google.colab
-    except ImportError as error:
-        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
-    _course_root = _start / "course-aiml-autoencoders"
-    if not _course_root.exists():
-        subprocess.run([
-            "git", "clone", "--depth", "1", "--branch", "main",
-            "https://github.com/tsilva/course-aiml-autoencoders.git",
-            str(_course_root),
-        ], check=True)
-    if not (_course_root / "course/curriculum.yaml").is_file():
-        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
-os.chdir(_course_root)
-_course_src = str(_course_root / "src")
-if _course_src not in sys.path:
-    sys.path.insert(0, _course_src)
-print("Course ready:", _course_root)
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
 
-# %%
-import matplotlib.pyplot as plt
-import torch
-from IPython.display import Image, display
-from course_aiml_autoencoders.config import load_yaml, with_overrides
-from course_aiml_autoencoders.course import (
-    balanced_class_batch, learn, learn_prior, lesson_config,
-    load_metrics, load_run_summary, load_trained_model,
-    plot_metric_history, repository_root,
-)
-from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import (
-    per_example_mse, plot_image_grid, plot_reconstruction_grid,
-)
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
 
-ROOT = repository_root()
-torch.manual_seed(0)
-PROFILE = "quick"
+from IPython.display import Markdown, display
+from course_aiml_autoencoders.course import learn
+from course_aiml_autoencoders.course import load_run_summary
+from course_aiml_autoencoders.course.notebook_views import show_run_figure
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `learn` | Trains a recipe or reuses an exact matching run. |
+| `load_run_summary` | Reads recorded validation results and run metadata. |
+| `show_run_figure` | Displays a diagnostic saved by the selected run. |
+"""))
 
 # %% [markdown]
 # The default uses eight CPU epochs on 2,048 training images and 512 held-out
@@ -89,7 +68,7 @@ PROFILE = "quick"
 # creates fresh evidence. You can return to the prediction while training runs.
 
 # %% [markdown]
-# ## Predict before running
+# ## 🔮 Predict before running
 #
 # Compared with beta zero, should prior pressure improve every reconstruction and every sample?
 #
@@ -99,14 +78,80 @@ PROFILE = "quick"
 # No. It can improve prior compatibility while sacrificing reconstruction information. Too much pressure can make clouds lose their input-specific information.
 # </details>
 
+# %% [markdown]
+# ## 1. 🏋️ Run the beta-zero control
+
 # %%
+# Use the quick training budget.
+PROFILE = "quick"
+
+# Run this recipe or reuse matching evidence.
 zero_dir = learn("recipes/vae/vae-000-kl-off.yaml", profile=PROFILE)
+
+# %% [markdown]
+# ## 2. 🏋️ Add prior pressure
+
+# %%
+# Run this recipe or reuse matching evidence.
 one_dir = learn("recipes/vae/vae-001-basic.yaml", profile=PROFILE)
-for name, run_dir in (("beta zero", zero_dir), ("beta one", one_dir)):
-    metrics = load_run_summary(run_dir)["best_validation_metrics"]
-    print(name, "reconstruction BCE:", metrics["validation/reconstruction_loss"],
-          "raw KL:", metrics["validation/kl_loss"])
-    display(Image(filename=str(run_dir / "figures/random-latent-samples.png")))
+
+# %% [markdown]
+# ## 3. 📊 Compare reconstruction and KL
+
+# %%
+# Name the runs to compare.
+runs = (("beta zero", zero_dir), ("beta one", one_dir))
+
+# Read the same evidence from each run.
+for name, run_dir in runs:
+
+    # Open the run summary.
+    summary = load_run_summary(run_dir)
+
+    # Select the held-out metrics.
+    metrics = summary["best_validation_metrics"]
+
+    # Read reconstruction BCE.
+    bce = metrics["validation/reconstruction_loss"]
+
+    # Read raw KL.
+    raw_kl = metrics["validation/kl_loss"]
+
+    # Print the scores together.
+    print(name, "reconstruction BCE:", bce, "raw KL:", raw_kl)
+
+# %% [markdown]
+# ## 4. 🎲 View beta-zero samples
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(zero_dir, "random-latent-samples.png")
+
+# %% [markdown]
+# ## 5. 🎲 View beta-one samples
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(one_dir, "random-latent-samples.png")
+
+# %% [markdown]
+# ## 6. 🔁 Switch sample galleries
+#
+# 🧪 **Try** setting `selected_run` to `"beta one"` and rerunning.
+# Look for changes in coherence and diversity, alongside the measured KL.
+
+# %%
+# Group the runs by their labels.
+gallery_runs = {"beta zero": zero_dir, "beta one": one_dir}
+
+# Choose which result to view.
+selected_run = "beta zero"
+
+# Look up the exact run for this label.
+gallery_run = gallery_runs[selected_run]
+
+# Display the selected run's figure.
+show_run_figure(gallery_run, "random-latent-samples.png")
 
 # %% [markdown]
 # Check whether samples become more coherent and whether reconstruction cost
@@ -119,7 +164,7 @@ for name, run_dir in (("beta zero", zero_dir), ("beta one", one_dir)):
 # tradeoff is reconstruction fidelity, imperfect prior fit, and collapse risk.
 
 # %% [markdown]
-# ## Advancement gate — transfer check
+# ## ✅ Advancement gate — transfer check
 #
 # All input clouds match the prior perfectly, and every reconstruction looks alike. Is zero KL a success?
 #
@@ -142,4 +187,4 @@ for name, run_dir in (("beta zero", zero_dir), ("beta one", one_dir)):
 # </details>
 
 # %% [markdown]
-# **Next:** [Lesson 08](08-rate-distortion.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/08-rate-distortion.ipynb). No worksheet is required.
+# ➡️ **Next:** [Lesson 08](08-rate-distortion.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/08-rate-distortion.ipynb). No worksheet is required.

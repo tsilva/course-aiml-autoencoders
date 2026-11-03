@@ -12,7 +12,7 @@
 # ---
 
 # %% [markdown]
-# # Lesson 00 — See what an autoencoder does
+# # 🧪 Lesson 00 — See what an autoencoder does
 #
 # **Learning objective:** follow an image through an encoder, a bottleneck, and a decoder.
 #
@@ -27,65 +27,48 @@
 # finally to discrete visual tokens.
 
 # %% [markdown]
-# ## Setup
+# ## ⚙️ Setup
 #
-# Run this cell first. In Colab it fetches the course code automatically;
-# locally it uses your checkout. The lessons use short CPU experiments.
+# Run **Set up the course** once per session to load the tools below.
+# To inspect an intermediate value, put its name on the last line of
+# its cell and rerun the cell.
 
-# %%
-import os
+# %% tags=["course-setup"]
 from pathlib import Path
-import subprocess
-import sys
+from runpy import run_path
+from subprocess import run
 
-# Find an existing checkout before fetching one in a fresh Colab session.
-_start = Path.cwd().resolve()
-_course_root = next((
-    candidate for candidate in (_start, *_start.parents)
-    if (candidate / "course/curriculum.yaml").is_file()
-    and (candidate / "src/course_aiml_autoencoders").is_dir()
-), None)
-if _course_root is None:
-    try:
-        import google.colab
-    except ImportError as error:
-        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
-    _course_root = _start / "course-aiml-autoencoders"
-    if not _course_root.exists():
-        subprocess.run([
-            "git", "clone", "--depth", "1", "--branch", "main",
-            "https://github.com/tsilva/course-aiml-autoencoders.git",
-            str(_course_root),
-        ], check=True)
-    if not (_course_root / "course/curriculum.yaml").is_file():
-        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
-os.chdir(_course_root)
-_course_src = str(_course_root / "src")
-if _course_src not in sys.path:
-    sys.path.insert(0, _course_src)
-print("Course ready:", _course_root)
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
 
-# %%
-import matplotlib.pyplot as plt
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
+
+from IPython.display import Markdown, display
 import torch
-from IPython.display import Image, display
-from course_aiml_autoencoders.config import load_yaml, with_overrides
-from course_aiml_autoencoders.course import (
-    balanced_class_batch, learn, learn_prior, lesson_config,
-    load_metrics, load_run_summary, load_trained_model,
-    plot_metric_history, repository_root,
-)
-from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import (
-    per_example_mse, plot_image_grid, plot_reconstruction_grid,
-)
+from course_aiml_autoencoders.diagnostics import plot_image_grid
+from course_aiml_autoencoders.diagnostics import plot_reconstruction_grid
+from course_aiml_autoencoders.course.notebook_views import untrained_example_model
 
-ROOT = repository_root()
 torch.manual_seed(0)
-PROFILE = "quick"
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `torch` | Creates tensors and controls gradient tracking. |
+| `plot_image_grid` | Displays images side by side. |
+| `plot_reconstruction_grid` | Compares inputs, reconstructions, and pixel errors. |
+| `untrained_example_model` | Builds a small model with untrained encoder and decoder weights. |
+"""))
 
 # %% [markdown]
-# ## Predict before running
+# ## 🔮 Predict before running
 #
 # An untrained model already has an encoder and decoder. Will its reconstruction resemble the input?
 #
@@ -95,21 +78,65 @@ PROFILE = "quick"
 # Usually not: the shape of the system is in place, but the weights have not learned a shared shorthand.
 # </details>
 
-# %%
-from course_aiml_autoencoders.models import build_model
-from course_aiml_autoencoders.data.datasets import dataset_spec
+# %% [markdown]
+# ## 1. 🎯 Make two toy images
 
-config = load_yaml(ROOT / "recipes/smoke/fake-ae.yaml")
-spec = dataset_spec(config["dataset"])
-model = build_model(config["model"], spec)
-inputs = torch.zeros(2, *spec.input_shape)
+# %%
+# Build an encoder and decoder with untrained weights.
+model, image_shape = untrained_example_model()
+
+# Allocate two black images.
+inputs = torch.zeros(2, *image_shape)
+
+# Draw a vertical bar in the first image.
 inputs[0, :, 5:23, 10:18] = 1
+
+# Draw a horizontal bar in the second image.
 inputs[1, :, 10:18, 5:23] = 1
-model.eval()
+
+# Display the two images.
+_ = plot_image_grid(inputs, title="Toy inputs")
+
+# %% [markdown]
+# ## 2. ✉️ Encode the images
+
+# %%
+# Turn off gradient tracking for the demonstration.
 with torch.no_grad():
-    output = model(inputs)
-print("Image → note → image:", tuple(inputs.shape), "→", tuple(output.latent.shape), "→", tuple(output.reconstruction.shape))
-_ = plot_reconstruction_grid(inputs, output.reconstruction, include_error=True)
+
+    # Encode both bars.
+    notes = model.encode(inputs)
+
+# Read the input dimensions.
+input_shape = inputs.shape
+
+# Read the note dimensions.
+note_shape = notes.shape
+
+# Compare the image and note shapes.
+print(f"Images {input_shape} → notes {note_shape}")
+
+# %% [markdown]
+# ## 3. 🖼️ Decode the notes
+#
+# 🧪 **Try** changing the first bar's slice and rerunning all three cells.
+# Check whether changing the input is enough to produce a useful reconstruction.
+
+# %%
+# Turn off gradient tracking during decoding.
+with torch.no_grad():
+
+    # Decode both notes.
+    reconstructions = model.decode(notes)
+
+# Read the output dimensions.
+reconstruction_shape = reconstructions.shape
+
+# Show the output dimensions.
+print(f"Reconstructed images: {reconstruction_shape}")
+
+# Show the inputs and the untrained outputs.
+_ = plot_reconstruction_grid(inputs, reconstructions, include_error=True)
 
 # %% [markdown]
 # The output has the right shape without having useful content. This is why a
@@ -121,7 +148,7 @@ _ = plot_reconstruction_grid(inputs, output.reconstruction, include_error=True)
 # can pass through the bottleneck and how new notes can be generated.
 
 # %% [markdown]
-# ## Advancement gate — transfer check
+# ## ✅ Advancement gate — transfer check
 #
 # A colleague shows you a model with perfect tensor shapes and no training history. What evidence is still missing?
 #
@@ -142,4 +169,4 @@ _ = plot_reconstruction_grid(inputs, output.reconstruction, include_error=True)
 # </details>
 
 # %% [markdown]
-# **Next:** [Lesson 01](01-mean-baseline.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/01-mean-baseline.ipynb). No worksheet is required.
+# ➡️ **Next:** [Lesson 01](01-mean-baseline.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/01-mean-baseline.ipynb). No worksheet is required.

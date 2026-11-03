@@ -12,7 +12,7 @@
 # ---
 
 # %% [markdown]
-# # Lesson 06 — Write a cloud of possible notes
+# # 🧪 Lesson 06 — Write a cloud of possible notes
 #
 # **Learning objective:** understand stochastic encoding before introducing a prior penalty.
 #
@@ -22,62 +22,49 @@
 # Start with two dimensions so you can see randomness before seeing equations.
 
 # %% [markdown]
-# ## Setup
+# ## ⚙️ Setup
 #
-# Run this cell first. In Colab it fetches the course code automatically;
-# locally it uses your checkout. The lessons use short CPU experiments.
+# Run **Set up the course** once per session to load the tools below.
+# To inspect an intermediate value, put its name on the last line of
+# its cell and rerun the cell.
 
-# %%
-import os
+# %% tags=["course-setup"]
 from pathlib import Path
-import subprocess
-import sys
+from runpy import run_path
+from subprocess import run
 
-# Find an existing checkout before fetching one in a fresh Colab session.
-_start = Path.cwd().resolve()
-_course_root = next((
-    candidate for candidate in (_start, *_start.parents)
-    if (candidate / "course/curriculum.yaml").is_file()
-    and (candidate / "src/course_aiml_autoencoders").is_dir()
-), None)
-if _course_root is None:
-    try:
-        import google.colab
-    except ImportError as error:
-        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
-    _course_root = _start / "course-aiml-autoencoders"
-    if not _course_root.exists():
-        subprocess.run([
-            "git", "clone", "--depth", "1", "--branch", "main",
-            "https://github.com/tsilva/course-aiml-autoencoders.git",
-            str(_course_root),
-        ], check=True)
-    if not (_course_root / "course/curriculum.yaml").is_file():
-        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
-os.chdir(_course_root)
-_course_src = str(_course_root / "src")
-if _course_src not in sys.path:
-    sys.path.insert(0, _course_src)
-print("Course ready:", _course_root)
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
 
-# %%
-import matplotlib.pyplot as plt
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
+
+from IPython.display import Markdown, display
 import torch
-from IPython.display import Image, display
-from course_aiml_autoencoders.config import load_yaml, with_overrides
-from course_aiml_autoencoders.course import (
-    balanced_class_batch, learn, learn_prior, lesson_config,
-    load_metrics, load_run_summary, load_trained_model,
-    plot_metric_history, repository_root,
-)
-from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import (
-    per_example_mse, plot_image_grid, plot_reconstruction_grid,
-)
+from course_aiml_autoencoders.course import learn
+from course_aiml_autoencoders.course import load_run_summary
+from course_aiml_autoencoders.models.vae import reparameterize
+from course_aiml_autoencoders.course.notebook_views import show_run_figure
+from course_aiml_autoencoders.course.notebook_views import plot_sample_clouds
 
-ROOT = repository_root()
 torch.manual_seed(0)
-PROFILE = "quick"
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `torch` | Creates tensors and controls gradient tracking. |
+| `learn` | Trains a recipe or reuses an exact matching run. |
+| `load_run_summary` | Reads recorded validation results and run metadata. |
+| `reparameterize` | Samples latent values from a center and log variance. |
+| `show_run_figure` | Displays a diagnostic saved by the selected run. |
+| `plot_sample_clouds` | Plots sampled latent values around a shared center. |
+"""))
 
 # %% [markdown]
 # The default uses eight CPU epochs on 2,048 training images and 512 held-out
@@ -89,7 +76,7 @@ PROFILE = "quick"
 # creates fresh evidence. You can return to the prediction while training runs.
 
 # %% [markdown]
-# ## Predict before running
+# ## 🔮 Predict before running
 #
 # If the center stays fixed and the spread grows, what changes when we encode the same input repeatedly?
 #
@@ -99,30 +86,102 @@ PROFILE = "quick"
 # Samples spread farther from the center. The input still has the same predicted center, but each sampled note can differ.
 # </details>
 
-# %%
-from course_aiml_autoencoders.models.vae import reparameterize
+# %% [markdown]
+# ## 1. 🎯 Fix the cloud center
 
-mu = torch.tensor([[2.0, -1.0]]).expand(200, -1)
-for spread in (0.1, 0.8):
-    logvar = torch.full_like(mu, 2 * torch.log(torch.tensor(spread)))
+# %%
+# Choose the coordinates of the center.
+center = [2.0, -1.0]
+
+# Put the center in a tensor.
+center_tensor = torch.tensor([center])
+
+# Repeat the same center for 200 draws.
+mu = center_tensor.expand(200, -1)
+
+# Show the first shared center.
+print(mu[0])
+
+# %% [markdown]
+# ## 2. ☁️ Change the spread
+#
+# 🧪 **Try** changing the second spread to `0.4` and rerunning.
+# Watch how the cloud shrinks around the same center.
+
+# %%
+# Choose two standard deviations.
+spreads = (0.1, 0.8)
+
+# Start a collection of sample clouds.
+clouds = []
+
+# Sample at each spread.
+for spread in spreads:
+
+    # Represent the spread as a tensor.
+    spread_tensor = torch.tensor(spread)
+
+    # Take the log of the standard deviation.
+    log_spread = torch.log(spread_tensor)
+
+    # Convert to log variance.
+    log_variance = 2 * log_spread
+
+    # Use that variance in both dimensions.
+    logvar = torch.full_like(mu, log_variance)
+
+    # Draw samples from the cloud.
     samples = reparameterize(mu, logvar)
-    plt.scatter(samples[:, 0], samples[:, 1], s=8, alpha=0.4, label=f"spread {spread}")
-plt.scatter([2], [-1], marker="x", c="black", label="center")
-plt.axis("equal")
-plt.legend()
-plt.title("Same center, two different clouds; illustrative, not trained")
-plt.show()
+
+    # Name the cloud for the plot.
+    label = f"spread {spread}"
+
+    # Save the samples and their label.
+    clouds.append((label, samples))
+
+# Compare the sampled clouds.
+plot_sample_clouds(clouds, center)
 
 # %% [markdown]
 # Sampling adds variation but does not tell the encoder where all clouds should
 # live. Turn off the prior penalty (`beta=0`) to isolate that fact.
 
+# %% [markdown]
+# ## 3. 🏋️ Train without prior pressure
+
 # %%
+# Use the quick training budget.
+PROFILE = "quick"
+
+# Run this recipe or reuse matching evidence.
 run_dir = learn("recipes/vae/vae-000-kl-off.yaml", profile=PROFILE)
+
+# %% [markdown]
+# ## 4. 📊 Inspect validation metrics
+
+# %%
+# Read the run summary.
 summary = load_run_summary(run_dir)
-print(summary["best_validation_metrics"])
-display(Image(filename=str(run_dir / "figures/reconstructions.png")))
-display(Image(filename=str(run_dir / "figures/random-latent-samples.png")))
+
+# Select the validation metrics.
+metrics = summary["best_validation_metrics"]
+
+# Show the reconstruction and KL metrics.
+print(metrics)
+
+# %% [markdown]
+# ## 5. 🖼️ Inspect reconstructions
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(run_dir, "reconstructions.png")
+
+# %% [markdown]
+# ## 6. 🎲 Inspect invented samples
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(run_dir, "random-latent-samples.png")
 
 # %% [markdown]
 # Compare reconstruction with decoding randomly invented standard-normal notes.
@@ -132,7 +191,7 @@ display(Image(filename=str(run_dir / "figures/random-latent-samples.png")))
 # training samples from the cloud.
 
 # %% [markdown]
-# ## Advancement gate — transfer check
+# ## ✅ Advancement gate — transfer check
 #
 # A beta-zero VAE reconstructs well but samples poorly from the standard normal. Is randomness broken?
 #
@@ -154,4 +213,4 @@ display(Image(filename=str(run_dir / "figures/random-latent-samples.png")))
 # </details>
 
 # %% [markdown]
-# **Next:** [Lesson 07](07-standard-vae.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/07-standard-vae.ipynb). No worksheet is required.
+# ➡️ **Next:** [Lesson 07](07-standard-vae.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/07-standard-vae.ipynb). No worksheet is required.

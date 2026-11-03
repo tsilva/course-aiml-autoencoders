@@ -12,7 +12,7 @@
 # ---
 
 # %% [markdown]
-# # Lesson 12 — Learn which token arrangements belong together
+# # 🧪 Lesson 12 — Learn which token arrangements belong together
 #
 # **Learning objective:** separate learning a visual vocabulary from learning a sampling distribution.
 #
@@ -23,62 +23,47 @@
 # prior's own previous choices.
 
 # %% [markdown]
-# ## Setup
+# ## ⚙️ Setup
 #
-# Run this cell first. In Colab it fetches the course code automatically;
-# locally it uses your checkout. The lessons use short CPU experiments.
+# Run **Set up the course** once per session to load the tools below.
+# To inspect an intermediate value, put its name on the last line of
+# its cell and rerun the cell.
 
-# %%
-import os
+# %% tags=["course-setup"]
 from pathlib import Path
-import subprocess
-import sys
+from runpy import run_path
+from subprocess import run
 
-# Find an existing checkout before fetching one in a fresh Colab session.
-_start = Path.cwd().resolve()
-_course_root = next((
-    candidate for candidate in (_start, *_start.parents)
-    if (candidate / "course/curriculum.yaml").is_file()
-    and (candidate / "src/course_aiml_autoencoders").is_dir()
-), None)
-if _course_root is None:
-    try:
-        import google.colab
-    except ImportError as error:
-        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
-    _course_root = _start / "course-aiml-autoencoders"
-    if not _course_root.exists():
-        subprocess.run([
-            "git", "clone", "--depth", "1", "--branch", "main",
-            "https://github.com/tsilva/course-aiml-autoencoders.git",
-            str(_course_root),
-        ], check=True)
-    if not (_course_root / "course/curriculum.yaml").is_file():
-        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
-os.chdir(_course_root)
-_course_src = str(_course_root / "src")
-if _course_src not in sys.path:
-    sys.path.insert(0, _course_src)
-print("Course ready:", _course_root)
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
 
-# %%
-import matplotlib.pyplot as plt
-import torch
-from IPython.display import Image, display
-from course_aiml_autoencoders.config import load_yaml, with_overrides
-from course_aiml_autoencoders.course import (
-    balanced_class_batch, learn, learn_prior, lesson_config,
-    load_metrics, load_run_summary, load_trained_model,
-    plot_metric_history, repository_root,
-)
-from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import (
-    per_example_mse, plot_image_grid, plot_reconstruction_grid,
-)
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
 
-ROOT = repository_root()
-torch.manual_seed(0)
-PROFILE = "quick"
+from IPython.display import Markdown, display
+from course_aiml_autoencoders.course import learn
+from course_aiml_autoencoders.course import learn_prior
+from course_aiml_autoencoders.course import load_run_summary
+from course_aiml_autoencoders.course import load_metrics
+from course_aiml_autoencoders.course import plot_metric_history
+from course_aiml_autoencoders.course.notebook_views import show_run_figure
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `learn` | Trains a recipe or reuses an exact matching run. |
+| `learn_prior` | Trains a token prior paired with a specific VQ-VAE checkpoint. |
+| `load_run_summary` | Reads recorded validation results and run metadata. |
+| `load_metrics` | Reads the loss values recorded during training. |
+| `plot_metric_history` | Shows how the selected losses change with training. |
+| `show_run_figure` | Displays a diagnostic saved by the selected run. |
+"""))
 
 # %% [markdown]
 # The default uses eight CPU epochs on 2,048 training images and 512 held-out
@@ -90,7 +75,7 @@ PROFILE = "quick"
 # creates fresh evidence. You can return to the prediction while training runs.
 
 # %% [markdown]
-# ## Predict before running
+# ## 🔮 Predict before running
 #
 # Will beating a uniform token predictor prove that the prior learned spatial dependencies?
 #
@@ -100,16 +85,83 @@ PROFILE = "quick"
 # No. Frequent symbols alone can beat uniform prediction. Compare with a training-frequency unigram baseline as well as inspecting generated arrangements.
 # </details>
 
+# %% [markdown]
+# ## 1. 🧱 Restore the tokenizer
+
 # %%
+# Use the quick training budget.
+PROFILE = "quick"
+
+# Run this recipe or reuse matching evidence.
 vq_run = learn("recipes/vqvae/vqvae-001-basic.yaml", profile=PROFILE)
+
+# %% [markdown]
+# ## 2. 🏋️ Learn token sequences
+
+# %%
+# Train a prior paired with this exact VQ checkpoint.
 prior_run = learn_prior("recipes/prior/prior-001-gru.yaml", vq_run, profile=PROFILE)
+
+# %% [markdown]
+# ## 3. 📊 Compare held-out token predictions
+
+# %%
+# Read the prior run summary.
 summary = load_run_summary(prior_run)
-print("Uniform CE:", summary["uniform_cross_entropy"],
-      "training-frequency unigram CE:", summary["unigram_cross_entropy"],
-      "learned-prior validation CE:", summary["best_validation_cross_entropy"])
-_ = plot_metric_history(load_metrics(prior_run), ["train/cross_entropy", "validation/cross_entropy"])
-display(Image(filename=str(vq_run / "figures/uniform-random-token-samples.png")))
-display(Image(filename=str(prior_run / "figures/learned-prior-samples.png")))
+
+# Read the uniform predictor's cross-entropy.
+uniform_ce = summary["uniform_cross_entropy"]
+
+# Read the frequency baseline's cross-entropy.
+unigram_ce = summary["unigram_cross_entropy"]
+
+# Read the learned prior's held-out cross-entropy.
+prior_ce = summary["best_validation_cross_entropy"]
+
+# Compare the three predictors.
+print("Uniform CE:", uniform_ce, "frequency CE:", unigram_ce, "learned-prior CE:", prior_ce)
+
+# %% [markdown]
+# ## 4. 📉 Inspect learning over time
+
+# %%
+# Load the recorded losses.
+history = load_metrics(prior_run)
+
+# Choose training and validation cross-entropy.
+metrics = ["train/cross_entropy", "validation/cross_entropy"]
+
+# Display the learning curves.
+_ = plot_metric_history(history, metrics)
+
+# %% [markdown]
+# ## 5. 🎲 View samples from uniform tokens
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(vq_run, "uniform-random-token-samples.png")
+
+# %% [markdown]
+# ## 6. 🖼️ View samples from the learned prior
+#
+# 🧪 **Try** setting `sample_source` to `"uniform"` and rerunning this cell.
+# Compare the same visual feature in both galleries, such as coherent edges.
+
+# %%
+# Choose which sampling method to inspect.
+sample_source = "learned"
+
+# Pair each method with its run and figure.
+sample_galleries = {
+    "learned": (prior_run, "learned-prior-samples.png"),
+    "uniform": (vq_run, "uniform-random-token-samples.png"),
+}
+
+# Look up the gallery for the selected sampling method.
+sample_run, sample_figure = sample_galleries[sample_source]
+
+# Show the selected gallery.
+show_run_figure(sample_run, sample_figure)
 
 # %% [markdown]
 # Better validation likelihood than the unigram baseline supports learning
@@ -123,7 +175,7 @@ display(Image(filename=str(prior_run / "figures/learned-prior-samples.png")))
 # frozen VQ representation.
 
 # %% [markdown]
-# ## Advancement gate — transfer check
+# ## ✅ Advancement gate — transfer check
 #
 # The prior improves dramatically, but generated images still lack fine detail. Which stage might be the bottleneck?
 #
@@ -146,4 +198,4 @@ display(Image(filename=str(prior_run / "figures/learned-prior-samples.png")))
 # </details>
 
 # %% [markdown]
-# **Next:** [Lesson 13](13-synthesis.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/13-synthesis.ipynb). No worksheet is required.
+# ➡️ **Next:** [Lesson 13](13-synthesis.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/13-synthesis.ipynb). No worksheet is required.

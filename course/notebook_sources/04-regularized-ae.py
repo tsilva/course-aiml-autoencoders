@@ -12,7 +12,7 @@
 # ---
 
 # %% [markdown]
-# # Lesson 04 — Learn to remove noise
+# # 🧪 Lesson 04 — Learn to remove noise
 #
 # **Learning objective:** distinguish reconstructing an input from recovering its clean target.
 #
@@ -22,62 +22,47 @@
 # architecture, clean targets, split, optimizer, and evaluation noise fixed.
 
 # %% [markdown]
-# ## Setup
+# ## ⚙️ Setup
 #
-# Run this cell first. In Colab it fetches the course code automatically;
-# locally it uses your checkout. The lessons use short CPU experiments.
+# Run **Set up the course** once per session to load the tools below.
+# To inspect an intermediate value, put its name on the last line of
+# its cell and rerun the cell.
 
-# %%
-import os
+# %% tags=["course-setup"]
 from pathlib import Path
-import subprocess
-import sys
+from runpy import run_path
+from subprocess import run
 
-# Find an existing checkout before fetching one in a fresh Colab session.
-_start = Path.cwd().resolve()
-_course_root = next((
-    candidate for candidate in (_start, *_start.parents)
-    if (candidate / "course/curriculum.yaml").is_file()
-    and (candidate / "src/course_aiml_autoencoders").is_dir()
-), None)
-if _course_root is None:
-    try:
-        import google.colab
-    except ImportError as error:
-        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
-    _course_root = _start / "course-aiml-autoencoders"
-    if not _course_root.exists():
-        subprocess.run([
-            "git", "clone", "--depth", "1", "--branch", "main",
-            "https://github.com/tsilva/course-aiml-autoencoders.git",
-            str(_course_root),
-        ], check=True)
-    if not (_course_root / "course/curriculum.yaml").is_file():
-        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
-os.chdir(_course_root)
-_course_src = str(_course_root / "src")
-if _course_src not in sys.path:
-    sys.path.insert(0, _course_src)
-print("Course ready:", _course_root)
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
 
-# %%
-import matplotlib.pyplot as plt
-import torch
-from IPython.display import Image, display
-from course_aiml_autoencoders.config import load_yaml, with_overrides
-from course_aiml_autoencoders.course import (
-    balanced_class_batch, learn, learn_prior, lesson_config,
-    load_metrics, load_run_summary, load_trained_model,
-    plot_metric_history, repository_root,
-)
-from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import (
-    per_example_mse, plot_image_grid, plot_reconstruction_grid,
-)
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
 
-ROOT = repository_root()
-torch.manual_seed(0)
-PROFILE = "quick"
+from IPython.display import Markdown, display
+from course_aiml_autoencoders.course import learn
+from course_aiml_autoencoders.course import load_run_summary
+from course_aiml_autoencoders.course import repository_root
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.config import with_overrides
+from course_aiml_autoencoders.course.notebook_views import show_run_figure
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `learn` | Trains a recipe or reuses an exact matching run. |
+| `load_run_summary` | Reads recorded validation results and run metadata. |
+| `repository_root` | Finds the course checkout so recipe paths work from any notebook folder. |
+| `load_yaml` | Reads the experiment recipe. |
+| `with_overrides` | Copies a recipe with a named setting changed. |
+| `show_run_figure` | Displays a diagnostic saved by the selected run. |
+"""))
 
 # %% [markdown]
 # The default uses eight CPU epochs on 2,048 training images and 512 held-out
@@ -89,7 +74,7 @@ PROFILE = "quick"
 # creates fresh evidence. You can return to the prediction while training runs.
 
 # %% [markdown]
-# ## Predict before running
+# ## 🔮 Predict before running
 #
 # Which model should better recover a clean image from noise? Must it also win on clean inputs?
 #
@@ -99,18 +84,105 @@ PROFILE = "quick"
 # The denoising model is trained for noisy-input recovery. It can trade some clean-input fidelity for robustness, so clean MSE alone cannot answer the denoising question.
 # </details>
 
+# %% [markdown]
+# ## 1. ⚙️ Make a clean-input control
+
 # %%
-recipe = load_yaml(ROOT / "recipes/ae/ae-003-denoising.yaml")
+# Use the quick training budget.
+PROFILE = "quick"
+
+# Find the course root.
+root = repository_root()
+
+# Locate the denoising recipe.
+recipe_path = root / "recipes/ae/ae-003-denoising.yaml"
+
+# Read the denoising recipe.
+recipe = load_yaml(recipe_path)
+
+# Remove training corruption for the control.
 clean_recipe = with_overrides(recipe, {"training.input_corruption": None})
+
+# Give the clean control its own run ID.
 clean_recipe["id"] = "ae/ae-003-denoising-clean-control"
+
+# Show the intervention.
+print("Control: clean training inputs. Variant: corrupted training inputs.")
+
+# %% [markdown]
+# ## 2. 🏋️ Run the clean-input control
+
+# %%
+# Train with clean inputs.
 clean_dir = learn(clean_recipe, profile=PROFILE)
+
+# %% [markdown]
+# ## 3. 🏋️ Run the denoiser
+
+# %%
+# Train with corrupted inputs.
 denoising_dir = learn(recipe, profile=PROFILE)
-for name, run_dir in (("clean-trained", clean_dir), ("denoising", denoising_dir)):
-    metrics = load_run_summary(run_dir)["best_validation_metrics"]
-    print(name, "clean MSE:", metrics["validation/reconstruction_loss"],
-          "noisy-input → clean-target MSE:", metrics["validation/corrupted_mse"],
-          "unprocessed noisy-input MSE:", metrics["validation/noisy_input_mse"])
-    display(Image(filename=str(run_dir / "figures/corrupted-input-reconstructions.png")))
+
+# %% [markdown]
+# ## 4. 📊 Score both on the same corruption
+
+# %%
+# Name the runs to compare.
+runs = (("clean-trained", clean_dir), ("denoising", denoising_dir))
+
+# Read the same evidence from each run.
+for name, run_dir in runs:
+
+    # Open the run summary.
+    summary = load_run_summary(run_dir)
+
+    # Select the held-out metrics.
+    metrics = summary["best_validation_metrics"]
+
+    # Read clean MSE.
+    clean_mse = metrics["validation/reconstruction_loss"]
+
+    # Read noisy-input → clean-target MSE.
+    corrupted_mse = metrics["validation/corrupted_mse"]
+
+    # Read unprocessed noisy-input MSE.
+    noisy_mse = metrics["validation/noisy_input_mse"]
+
+    # Print the scores together.
+    print(name, "clean MSE:", clean_mse, "noisy-input → clean-target MSE:", corrupted_mse, "unprocessed noisy-input MSE:", noisy_mse)
+
+# %% [markdown]
+# ## 5. 🖼️ Inspect the clean-trained control
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(clean_dir, "corrupted-input-reconstructions.png")
+
+# %% [markdown]
+# ## 6. 🖼️ Inspect the denoiser
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(denoising_dir, "corrupted-input-reconstructions.png")
+
+# %% [markdown]
+# ## 7. 🔁 Toggle the prediction
+#
+# 🧪 **Try** setting `selected_run` to `"denoising"` and rerunning.
+# Look at the error row for the same noisy input.
+
+# %%
+# Group the runs by their labels.
+gallery_runs = {"clean-trained": clean_dir, "denoising": denoising_dir}
+
+# Choose which result to view.
+selected_run = "clean-trained"
+
+# Look up the exact run for this label.
+gallery_run = gallery_runs[selected_run]
+
+# Display the selected run's figure.
+show_run_figure(gallery_run, "corrupted-input-reconstructions.png")
 
 # %% [markdown]
 # Read the four rows: clean target, noisy input, reconstruction, clean-target
@@ -123,7 +195,7 @@ for name, run_dir in (("clean-trained", clean_dir), ("denoising", denoising_dir)
 # separate question.
 
 # %% [markdown]
-# ## Advancement gate — transfer check
+# ## ✅ Advancement gate — transfer check
 #
 # A denoiser improves clean-input MSE but leaves noisy images untouched. Has it demonstrated denoising?
 #
@@ -148,4 +220,4 @@ for name, run_dir in (("clean-trained", clean_dir), ("denoising", denoising_dir)
 # </details>
 
 # %% [markdown]
-# **Next:** [Lesson 05](05-ae-geometry.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/05-ae-geometry.ipynb). No worksheet is required.
+# ➡️ **Next:** [Lesson 05](05-ae-geometry.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/05-ae-geometry.ipynb). No worksheet is required.

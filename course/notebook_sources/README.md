@@ -31,9 +31,9 @@ results names so learners can inspect them, and put a brief comment above
 each step explaining what it does. Leave one blank line before each comment
 after the first in a cell.
 
-Lessons 01 and 02 use a short loader tagged `course-setup`. It finds or
-clones the course checkout and runs `_setup.py` from disk. The build
-collapses the setup and imports in Colab and JupyterLab.
+Each lesson uses a short loader tagged `course-setup`. It finds or clones
+the course checkout and runs `_setup.py` from disk. The build collapses the
+setup and imports in Colab and JupyterLab.
 
 Do not add blank “Your answer” or “Prediction” fields. Put the expected
 reasoning in a collapsed `<details>` block directly beneath the question.
