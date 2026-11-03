@@ -23,7 +23,10 @@ Usually the model beats the mean poster by tailoring the sliders to each input. 
 
 The notebook uses short CPU runs and reuses exact matching completed evidence.
 It prints the run path and measured duration. Keep `PROFILE = "quick"` for the
-core path; use `"full"` for the original budget. No worksheet is required.
+core path or use `"full"` for the original budget. Inspect a garment's eight
+slider settings, decode them into an image, then change one slider and compare
+the result. Score the model and mean-image baseline on the same validation
+split.
 
 ## Advancement gate — transfer check
 
