@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import ast
 import base64
 from datetime import datetime, timezone
 import hashlib
@@ -54,14 +53,10 @@ def make_payload(root: Path, selection: list[str] | None = None) -> dict:
         notebooks.append({"id": lesson["id"], "path": str(path.relative_to(root)),
                           "sha256": digest(raw), "code_cells": len(code),
                           "notebook": json.loads(json.dumps(notebook))})
-    bootstraps = [next(cell["source"] for cell in item["notebook"]["cells"]
-                       if cell["cell_type"] == "code") for item in notebooks]
-    # Colab titles are comments and do not change the shared bootstrap.
-    if len({ast.dump(ast.parse(source)) for source in bootstraps}) != 1:
-        raise ValueError("Setup cells differ; prepare and validate each lesson separately")
     paths = sorted({
         *root.glob("src/course_aiml_autoencoders/**/*.py"),
         *root.glob("recipes/**/*.yaml"),
+        root / "course/notebook_sources/_setup.py",
         root / "course/curriculum.yaml", root / "pyproject.toml", root / "uv.lock",
     })
     files = {str(path.relative_to(root)): path.read_text() for path in paths}
@@ -78,8 +73,7 @@ def prepare(root: Path, output: Path, selection: list[str] | None = None) -> Pat
     output.resolve().relative_to((root / "runs").resolve())
     output.mkdir(parents=True, exist_ok=False)
     encoded = base64.b64encode(zlib.compress(json.dumps(payload).encode())).decode()
-    setup = next(cell["source"] for cell in payload["snapshot"]["lessons"][0]["notebook"]["cells"]
-                 if cell["cell_type"] == "code")
+    setup = payload["snapshot"]["files"]["course/notebook_sources/_setup.py"].rstrip()
     runtime = Path(__file__).with_name("colab_runtime.py").read_text()
     notebook = nbformat.v4.new_notebook(cells=[
         nbformat.v4.new_markdown_cell(

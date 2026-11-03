@@ -1,6 +1,7 @@
 """Regression checks for standalone Colab notebooks and local setup."""
 
 import ast
+import shutil
 import subprocess
 import sys
 import types
@@ -12,6 +13,8 @@ import pytest
 
 ROOT = Path(__file__).parents[1]
 NOTEBOOKS = sorted((ROOT / "course/notebooks").glob("*.ipynb"))
+LESSON_ONE = ROOT / "course/notebooks/01-mean-baseline.ipynb"
+SETUP_FILE = Path("course/notebook_sources/_setup.py")
 
 
 def setup_source(path=NOTEBOOKS[0]):
@@ -23,6 +26,8 @@ def checkout(path):
     (path / "course").mkdir(parents=True)
     (path / "course/curriculum.yaml").write_text("lessons: []\n")
     (path / "src/course_aiml_autoencoders").mkdir(parents=True)
+    (path / SETUP_FILE.parent).mkdir()
+    shutil.copyfile(ROOT / SETUP_FILE, path / SETUP_FILE)
 
 
 def colab_modules(monkeypatch):
@@ -38,7 +43,8 @@ def test_every_notebook_bootstraps_before_course_imports():
     assert len(NOTEBOOKS) == 14
     expected = ast.dump(ast.parse(setup_source()))
     for path in NOTEBOOKS:
-        assert ast.dump(ast.parse(setup_source(path))) == expected
+        if path != LESSON_ONE:
+            assert ast.dump(ast.parse(setup_source(path))) == expected
         notebook = nbformat.read(path, as_version=4)
         # The actual imports follow setup, preventing the reported Colab error.
         code = [cell.source for cell in notebook.cells if cell.cell_type == "code"]
@@ -46,14 +52,15 @@ def test_every_notebook_bootstraps_before_course_imports():
 
 
 def test_lesson_one_setup_starts_collapsed():
-    notebook = nbformat.read(ROOT / "course/notebooks/01-mean-baseline.ipynb", as_version=4)
+    notebook = nbformat.read(LESSON_ONE, as_version=4)
     setup = next(cell for cell in notebook.cells if cell.cell_type == "code")
     assert setup.source.startswith("# @title Set up the course\n")
     assert setup.metadata["cellView"] == "form"
     assert setup.metadata["jupyter"]["source_hidden"] is True
 
 
-def test_local_setup_finds_checkout_without_network(tmp_path, monkeypatch):
+@pytest.mark.parametrize("notebook", [NOTEBOOKS[0], LESSON_ONE])
+def test_local_setup_finds_checkout_without_network(tmp_path, monkeypatch, notebook):
     checkout(tmp_path)
     child = tmp_path / "course/notebooks"
     child.mkdir()
@@ -64,12 +71,13 @@ def test_local_setup_finds_checkout_without_network(tmp_path, monkeypatch):
         pytest.fail("Local setup must not clone a repository")
 
     monkeypatch.setattr(subprocess, "run", unexpected_clone)
-    exec(setup_source(), {})
+    exec(setup_source(notebook), {})
     assert Path.cwd() == tmp_path
     assert sys.path[0] == str(tmp_path / "src")
 
 
-def test_fresh_colab_clones_once_and_reruns_safely(tmp_path, monkeypatch):
+@pytest.mark.parametrize("notebook", [NOTEBOOKS[0], LESSON_ONE])
+def test_fresh_colab_clones_once_and_reruns_safely(tmp_path, monkeypatch, notebook):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "path", sys.path.copy())
     colab_modules(monkeypatch)
@@ -85,11 +93,11 @@ def test_fresh_colab_clones_once_and_reruns_safely(tmp_path, monkeypatch):
         checkout(Path(command[-1]))
 
     monkeypatch.setattr(subprocess, "run", clone)
-    exec(setup_source(), {})
+    exec(setup_source(notebook), {})
     expected = tmp_path / "course-aiml-autoencoders"
     assert Path.cwd() == expected
     assert sys.path[0] == str(expected / "src")
-    exec(setup_source(), {})
+    exec(setup_source(notebook), {})
     assert len(calls) == 1
     assert sys.path.count(str(expected / "src")) == 1
 

@@ -30,6 +30,21 @@
 # to do this once per session.
 
 # %% tags=["course-setup"]
+from pathlib import Path
+from runpy import run_path
+from subprocess import run
+
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
+
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
 
 # %%
 import torch

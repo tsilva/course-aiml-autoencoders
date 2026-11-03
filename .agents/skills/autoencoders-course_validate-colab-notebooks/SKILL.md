@@ -31,12 +31,12 @@ selected generated notebooks, current Python sources, recipes, and curriculum.
 This tests unpublished working-tree changes without a push. Retain the manifest's
 SHA-256 fingerprint; HEAD alone does not identify uncommitted changes.
 
-The harness runs the notebooks' shared first setup cell in an empty Colab session,
-then replaces the fetched course code/configuration with the embedded snapshot.
+The harness runs the course setup script in an empty Colab session, then
+replaces the fetched course code and configuration with the embedded snapshot.
 It executes every original code cell in order with fresh lesson globals, sharing
 matching training runs only within this validation session. It records outputs,
-cell counts, failures, environment versions, and source hashes. The helper refuses
-different setup cells: validate those lessons separately so each bootstrap is tested.
+cell counts, failures, environment versions, and source hashes. Each lesson's
+setup cell runs against the prepared checkout.
 
 ## Run in actual Colab
 

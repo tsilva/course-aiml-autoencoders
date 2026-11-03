@@ -45,7 +45,7 @@ def test_generated_harness_is_uploadable_and_preserves_sources(tmp_path):
     (ROOT / "runs").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir=ROOT / "runs") as directory:
         output = Path(directory) / "check"
-        path = prepare.prepare(ROOT, output, ["00"])
+        path = prepare.prepare(ROOT, output, ["01"])
         notebook = nbformat.read(path, as_version=4)
         nbformat.validate(notebook)
         assert all(not cell.outputs for cell in notebook.cells if cell.cell_type == "code")
@@ -54,8 +54,10 @@ def test_generated_harness_is_uploadable_and_preserves_sources(tmp_path):
         payload = json.loads(zlib.decompress(base64.b64decode(namespace["ENCODED_SNAPSHOT"])))
         manifest = json.loads((output / "manifest.json").read_text())
         assert payload["fingerprint"] == manifest["fingerprint"]
-        original = nbformat.read(ROOT / "course/notebooks/00-laboratory.ipynb", as_version=4)
-        assert notebook.cells[2].source == next(c.source for c in original.cells if c.cell_type == "code")
+        original = nbformat.read(ROOT / "course/notebooks/01-mean-baseline.ipynb", as_version=4)
+        setup_path = "course/notebook_sources/_setup.py"
+        assert payload["snapshot"]["files"][setup_path] == (ROOT / setup_path).read_text()
+        assert notebook.cells[2].source == payload["snapshot"]["files"][setup_path].rstrip()
         assert [c["source"] for c in payload["snapshot"]["lessons"][0]["notebook"]["cells"]] == [
             c.source for c in original.cells]
     with pytest.raises(ValueError):

@@ -46,10 +46,7 @@ def render_notebook(source_path: Path) -> str:
         cell.metadata = {"tags": tags} if tags else {}
         if cell.cell_type == "code":
             if "course-setup" in tags:
-                if cell.source.strip():
-                    raise ValueError("The course-setup cell must be empty in the source")
-                setup = (SOURCE_DIR / "_setup.py").read_text(encoding="utf-8")
-                cell.source = "# @title Set up the course\n" + setup.rstrip()
+                cell.source = "# @title Set up the course\n" + cell.source
                 cell.metadata["cellView"] = "form"
                 cell.metadata["jupyter"] = {"source_hidden": True}
             cell.execution_count = None

@@ -26,10 +26,9 @@ Every lesson must preserve the learning loop:
 Keep reusable model, objective, training, and plotting logic in
 `src/course_aiml_autoencoders`.
 
-Lesson 01 uses an empty code cell tagged `course-setup`. The build embeds
-`_setup.py` in that cell and collapses it in Colab and JupyterLab. This keeps
-setup out of the teaching source while the generated notebook can still start
-from a fresh Colab session.
+Lesson 01 uses a short loader tagged `course-setup`. It finds or clones the
+course checkout and runs `_setup.py` from disk. The build collapses the loader
+in Colab and JupyterLab.
 
 Do not add blank “Your answer” or “Prediction” fields. Put the expected
 reasoning in a collapsed `<details>` block directly beneath the question.
