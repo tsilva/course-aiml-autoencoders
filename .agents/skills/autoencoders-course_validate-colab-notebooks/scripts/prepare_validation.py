@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import base64
 from datetime import datetime, timezone
 import hashlib
@@ -55,7 +56,8 @@ def make_payload(root: Path, selection: list[str] | None = None) -> dict:
                           "notebook": json.loads(json.dumps(notebook))})
     bootstraps = [next(cell["source"] for cell in item["notebook"]["cells"]
                        if cell["cell_type"] == "code") for item in notebooks]
-    if len(set(bootstraps)) != 1:
+    # Colab titles are comments and do not change the shared bootstrap.
+    if len({ast.dump(ast.parse(source)) for source in bootstraps}) != 1:
         raise ValueError("Setup cells differ; prepare and validate each lesson separately")
     paths = sorted({
         *root.glob("src/course_aiml_autoencoders/**/*.py"),

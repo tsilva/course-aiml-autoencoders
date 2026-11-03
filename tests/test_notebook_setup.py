@@ -1,5 +1,6 @@
 """Regression checks for standalone Colab notebooks and local setup."""
 
+import ast
 import subprocess
 import sys
 import types
@@ -35,13 +36,21 @@ def colab_modules(monkeypatch):
 
 def test_every_notebook_bootstraps_before_course_imports():
     assert len(NOTEBOOKS) == 14
-    expected = setup_source()
+    expected = ast.dump(ast.parse(setup_source()))
     for path in NOTEBOOKS:
-        assert setup_source(path) == expected
+        assert ast.dump(ast.parse(setup_source(path))) == expected
         notebook = nbformat.read(path, as_version=4)
         # The actual imports follow setup, preventing the reported Colab error.
         code = [cell.source for cell in notebook.cells if cell.cell_type == "code"]
         assert "from course_aiml_autoencoders" in code[1]
+
+
+def test_lesson_one_setup_starts_collapsed():
+    notebook = nbformat.read(ROOT / "course/notebooks/01-mean-baseline.ipynb", as_version=4)
+    setup = next(cell for cell in notebook.cells if cell.cell_type == "code")
+    assert setup.source.startswith("# @title Set up the course\n")
+    assert setup.metadata["cellView"] == "form"
+    assert setup.metadata["jupyter"]["source_hidden"] is True
 
 
 def test_local_setup_finds_checkout_without_network(tmp_path, monkeypatch):
