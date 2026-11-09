@@ -12,7 +12,7 @@
 # ---
 
 # %% [markdown]
-# # Lesson 10 — Snap notes to a learned vocabulary
+# # 🧪 Lesson 10 — Snap notes to a learned vocabulary
 #
 # **Learning objective:** understand vector quantization as choosing symbols for image regions.
 #
@@ -22,62 +22,49 @@
 # a grid of those entries. First watch four points snap to three fixed symbols.
 
 # %% [markdown]
-# ## Setup
+# ## ⚙️ Setup
 #
-# Run this cell first. In Colab it fetches the course code automatically;
-# locally it uses your checkout. The lessons use short CPU experiments.
+# Run **Set up the course** once per session to load the tools below.
+# To inspect an intermediate value, put its name on the last line of
+# its cell and rerun the cell.
 
-# %%
-import os
+# %% tags=["course-setup"]
 from pathlib import Path
-import subprocess
-import sys
+from runpy import run_path
+from subprocess import run
 
-# Find an existing checkout before fetching one in a fresh Colab session.
-_start = Path.cwd().resolve()
-_course_root = next((
-    candidate for candidate in (_start, *_start.parents)
-    if (candidate / "course/curriculum.yaml").is_file()
-    and (candidate / "src/course_aiml_autoencoders").is_dir()
-), None)
-if _course_root is None:
-    try:
-        import google.colab
-    except ImportError as error:
-        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
-    _course_root = _start / "course-aiml-autoencoders"
-    if not _course_root.exists():
-        subprocess.run([
-            "git", "clone", "--depth", "1", "--branch", "main",
-            "https://github.com/tsilva/course-aiml-autoencoders.git",
-            str(_course_root),
-        ], check=True)
-    if not (_course_root / "course/curriculum.yaml").is_file():
-        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
-os.chdir(_course_root)
-_course_src = str(_course_root / "src")
-if _course_src not in sys.path:
-    sys.path.insert(0, _course_src)
-print("Course ready:", _course_root)
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
 
-# %%
-import matplotlib.pyplot as plt
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
+
+from IPython.display import Markdown, display
 import torch
-from IPython.display import Image, display
-from course_aiml_autoencoders.config import load_yaml, with_overrides
-from course_aiml_autoencoders.course import (
-    balanced_class_batch, learn, learn_prior, lesson_config,
-    load_metrics, load_run_summary, load_trained_model,
-    plot_metric_history, repository_root,
-)
-from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import (
-    per_example_mse, plot_image_grid, plot_reconstruction_grid,
-)
+from course_aiml_autoencoders.course import learn
+from course_aiml_autoencoders.course import load_run_summary
+from course_aiml_autoencoders.models.quantizer import VectorQuantizer
+from course_aiml_autoencoders.course.notebook_views import show_run_figure
+from course_aiml_autoencoders.course.notebook_views import plot_codebook_snap
 
-ROOT = repository_root()
 torch.manual_seed(0)
-PROFILE = "quick"
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `torch` | Creates tensors and controls gradient tracking. |
+| `learn` | Trains a recipe or reuses an exact matching run. |
+| `load_run_summary` | Reads recorded validation results and run metadata. |
+| `VectorQuantizer` | Replaces an encoder vector with its closest codebook entry. |
+| `show_run_figure` | Displays a diagnostic saved by the selected run. |
+| `plot_codebook_snap` | Connects each encoder vector to its selected symbol. |
+"""))
 
 # %% [markdown]
 # The default uses eight CPU epochs on 2,048 training images and 512 held-out
@@ -89,7 +76,7 @@ PROFILE = "quick"
 # creates fresh evidence. You can return to the prediction while training runs.
 
 # %% [markdown]
-# ## Predict before running
+# ## 🔮 Predict before running
 #
 # If two nearby vectors choose the same symbol, will the decoder still see their small difference?
 #
@@ -99,25 +86,71 @@ PROFILE = "quick"
 # No. Quantization replaces both with the same embedding. That loses detail but creates a discrete vocabulary.
 # </details>
 
-# %%
-from course_aiml_autoencoders.models.quantizer import VectorQuantizer
+# %% [markdown]
+# ## 1. 📍 Make a tiny vocabulary
 
+# %%
+# Build a quantizer with three two-dimensional entries.
 quantizer = VectorQuantizer(codebook_size=3, embedding_dim=2, commitment_weight=0.25)
+
+# Choose three fixed codebook locations.
+embeddings = torch.tensor([[-1., -1.], [1., -1.], [0., 1.]])
+
+# Disable gradients while setting up the example.
 with torch.no_grad():
-    quantizer.codebook.weight.copy_(torch.tensor([[-1., -1.], [1., -1.], [0., 1.]]))
+
+    # Set the toy codebook entries.
+    quantizer.codebook.weight.copy_(embeddings)
+
+# Show the available symbol locations.
+print(embeddings)
+
+# %% [markdown]
+# ## 2. 🧲 Snap encoder vectors to symbols
+#
+# 🧪 **Try** moving the first point toward the right-hand symbol.
+# Rerun this cell and the next one to see when its selected index changes.
+
+# %%
+# Choose four example encoder vectors.
 points = torch.tensor([[-0.9, -0.7], [-0.6, -0.8], [0.9, -0.6], [0.2, 0.7]])
-quantized, extras = quantizer(points.T.reshape(1, 2, 1, 4))
-chosen = quantized.detach().permute(0, 2, 3, 1).reshape(-1, 2)
-plt.scatter(points[:, 0], points[:, 1], label="encoder vectors")
-embeddings = quantizer.codebook.weight.detach()
-plt.scatter(embeddings[:, 0], embeddings[:, 1], marker="s", s=100, label="codebook")
-for point, symbol in zip(points, chosen):
-    plt.plot([point[0], symbol[0]], [point[1], symbol[1]], color="gray")
-plt.legend()
-plt.axis("equal")
-plt.title("Snapping to symbols; illustrative fixed codebook")
-plt.show()
-print("Chosen symbols:", extras["indices"].flatten().tolist())
+
+# Put the two feature channels first.
+channels_first = points.T
+
+# Reshape the points as a one-row spatial grid.
+encoder_grid = channels_first.reshape(1, 2, 1, 4)
+
+# Replace each point with its nearest codebook vector.
+quantized, extras = quantizer(encoder_grid)
+
+# Read the chosen symbol indices.
+indices = extras["indices"]
+
+# Flatten the grid of indices into a list-shaped tensor.
+chosen_indices = indices.flatten()
+
+# Convert the indices to a Python list.
+symbols = chosen_indices.tolist()
+
+# Show the symbol chosen for each vector.
+print("Chosen symbols:", symbols)
+
+# %% [markdown]
+# ## 3. 🗺️ See where each vector snapped
+
+# %%
+# Detach the snapped grid for display.
+snapped_grid = quantized.detach()
+
+# Move the two feature channels to the last axis.
+features_last = snapped_grid.permute(0, 2, 3, 1)
+
+# Recover one row per snapped vector.
+chosen = features_last.reshape(-1, 2)
+
+# Draw the movement from each vector to its chosen symbol.
+plot_codebook_snap(points, embeddings, chosen)
 
 # %% [markdown]
 # The real codebook is learned. Reconstruction trains the encoder/decoder,
@@ -125,12 +158,49 @@ print("Chosen symbols:", extras["indices"].flatten().tolist())
 # encoder outputs near their chosen symbols. Straight-through learning passes an
 # approximate reconstruction gradient through the discrete choice.
 
+# %% [markdown]
+# ## 4. 🏋️ Train a VQ-VAE
+
 # %%
+# Use the quick training budget.
+PROFILE = "quick"
+
+# Run this recipe or reuse matching evidence.
 run_dir = learn("recipes/vqvae/vqvae-001-basic.yaml", profile=PROFILE)
+
+# %% [markdown]
+# ## 5. 📊 Read the learned codebook statistics
+
+# %%
+# Open the run summary.
 summary = load_run_summary(run_dir)
-print(summary["codebook"])
-for figure in ("reconstructions.png", "token-maps.png", "uniform-random-token-samples.png"):
-    display(Image(filename=str(run_dir / "figures" / figure)))
+
+# Get the codebook statistics.
+usage = summary["codebook"]
+
+# Show the number and diversity of used codes.
+print(usage)
+
+# %% [markdown]
+# ## 6. 🖼️ Inspect reconstructions
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(run_dir, "reconstructions.png")
+
+# %% [markdown]
+# ## 7. 🗺️ Inspect token grids
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(run_dir, "token-maps.png")
+
+# %% [markdown]
+# ## 8. 🎲 Inspect samples from uniform tokens
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(run_dir, "uniform-random-token-samples.png")
 
 # %% [markdown]
 # Each 7-by-7 position is a code index. Indices name symbols; neighboring numeric
@@ -139,7 +209,7 @@ for figure in ("reconstructions.png", "token-maps.png", "uniform-random-token-sa
 # arrangements make plausible new images. That is the prior's job.
 
 # %% [markdown]
-# ## Advancement gate — transfer check
+# ## ✅ Advancement gate — transfer check
 #
 # The codebook and decoder are trained. Why can a grid of uniformly random tokens still look incoherent?
 #
@@ -161,4 +231,4 @@ for figure in ("reconstructions.png", "token-maps.png", "uniform-random-token-sa
 # </details>
 
 # %% [markdown]
-# **Next:** [Lesson 11](11-codebook.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/11-codebook.ipynb). No worksheet is required.
+# ➡️ **Next:** [Lesson 11](11-codebook.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/11-codebook.ipynb). No worksheet is required.

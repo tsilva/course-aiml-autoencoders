@@ -12,7 +12,7 @@
 # ---
 
 # %% [markdown]
-# # Lesson 13 — Choose a representation for a task
+# # 🧪 Lesson 13 — Choose a representation for a task
 #
 # **Learning objective:** select a model from required behavior and diagnose contradictory evidence.
 #
@@ -23,65 +23,42 @@
 # optional extensions.
 
 # %% [markdown]
-# ## Setup
+# ## ⚙️ Setup
 #
-# Run this cell first. In Colab it fetches the course code automatically;
-# locally it uses your checkout. The lessons use short CPU experiments.
+# Run **Set up the course** once per session to load the tools below.
+# To inspect an intermediate value, put its name on the last line of
+# its cell and rerun the cell.
 
-# %%
-import os
+# %% tags=["course-setup"]
 from pathlib import Path
-import subprocess
-import sys
+from runpy import run_path
+from subprocess import run
 
-# Find an existing checkout before fetching one in a fresh Colab session.
-_start = Path.cwd().resolve()
-_course_root = next((
-    candidate for candidate in (_start, *_start.parents)
-    if (candidate / "course/curriculum.yaml").is_file()
-    and (candidate / "src/course_aiml_autoencoders").is_dir()
-), None)
-if _course_root is None:
-    try:
-        import google.colab
-    except ImportError as error:
-        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
-    _course_root = _start / "course-aiml-autoencoders"
-    if not _course_root.exists():
-        subprocess.run([
-            "git", "clone", "--depth", "1", "--branch", "main",
-            "https://github.com/tsilva/course-aiml-autoencoders.git",
-            str(_course_root),
-        ], check=True)
-    if not (_course_root / "course/curriculum.yaml").is_file():
-        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
-os.chdir(_course_root)
-_course_src = str(_course_root / "src")
-if _course_src not in sys.path:
-    sys.path.insert(0, _course_src)
-print("Course ready:", _course_root)
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
 
-# %%
-import matplotlib.pyplot as plt
-import torch
-from IPython.display import Image, display
-from course_aiml_autoencoders.config import load_yaml, with_overrides
-from course_aiml_autoencoders.course import (
-    balanced_class_batch, learn, learn_prior, lesson_config,
-    load_metrics, load_run_summary, load_trained_model,
-    plot_metric_history, repository_root,
-)
-from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import (
-    per_example_mse, plot_image_grid, plot_reconstruction_grid,
-)
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
 
-ROOT = repository_root()
-torch.manual_seed(0)
-PROFILE = "quick"
+from IPython.display import Markdown, display
+from course_aiml_autoencoders.course import learn
+from course_aiml_autoencoders.course.notebook_views import show_run_figure
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `learn` | Trains a recipe or reuses an exact matching run. |
+| `show_run_figure` | Displays a diagnostic saved by the selected run. |
+"""))
 
 # %% [markdown]
-# ## Predict before running
+# ## 🔮 Predict before running
 #
 # A product needs compact discrete image tokens for another model. Which family fits, and what evidence would you inspect?
 #
@@ -91,16 +68,69 @@ PROFILE = "quick"
 # VQ-VAE. Check reconstruction, token maps, and global vocabulary usage. If the product also generates images, evaluate a prior paired with that exact representation.
 # </details>
 
+# %% [markdown]
+# ## 1. 🏋️ Restore the continuous AE
+
 # %%
-# These calls reuse the same configurations inspected in earlier lessons.
-finalists = {
-    "AE": learn("recipes/ae/ae-002-nonlinear.yaml", profile=PROFILE),
-    "VAE": learn("recipes/vae/vae-001-basic.yaml", profile=PROFILE),
-    "VQ-VAE": learn("recipes/vqvae/vqvae-001-basic.yaml", profile=PROFILE),
-}
-for family, run_dir in finalists.items():
-    print(family, "exact run:", run_dir)
-    display(Image(filename=str(run_dir / "figures/reconstructions.png")))
+# Use the quick training budget.
+PROFILE = "quick"
+
+# Run this recipe or reuse matching evidence.
+ae_run = learn("recipes/ae/ae-002-nonlinear.yaml", profile=PROFILE)
+
+# %% [markdown]
+# ## 2. 🏋️ Restore the VAE
+
+# %%
+# Run this recipe or reuse matching evidence.
+vae_run = learn("recipes/vae/vae-001-basic.yaml", profile=PROFILE)
+
+# %% [markdown]
+# ## 3. 🏋️ Restore the VQ-VAE
+
+# %%
+# Run this recipe or reuse matching evidence.
+vq_run = learn("recipes/vqvae/vqvae-001-basic.yaml", profile=PROFILE)
+
+# %% [markdown]
+# ## 4. 🖼️ Inspect continuous AE reconstructions
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(ae_run, "reconstructions.png")
+
+# %% [markdown]
+# ## 5. 🖼️ Inspect VAE reconstructions
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(vae_run, "reconstructions.png")
+
+# %% [markdown]
+# ## 6. 🖼️ Inspect VQ-VAE reconstructions
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(vq_run, "reconstructions.png")
+
+# %% [markdown]
+# ## 7. 🔁 Choose the evidence for your task
+#
+# 🧪 **Try** changing `selected_run` to the family that fits your task.
+# Rerun the cell and name one property these reconstructions can help you assess.
+
+# %%
+# Group the runs by their labels.
+gallery_runs = {"AE": ae_run, "VAE": vae_run, "VQ-VAE": vq_run}
+
+# Choose which result to view.
+selected_run = "AE"
+
+# Look up the exact run for this label.
+gallery_run = gallery_runs[selected_run]
+
+# Display the selected run's figure.
+show_run_figure(gallery_run, "reconstructions.png")
 
 # %% [markdown]
 # The pictures expose representation tradeoffs; they do not define a fair
@@ -117,7 +147,7 @@ for family, run_dir in finalists.items():
 # would make you change your choice. No written worksheet is required.
 
 # %% [markdown]
-# ## Advancement gate — transfer check
+# ## ✅ Advancement gate — transfer check
 #
 # An unfamiliar VAE has high KL, excellent reconstruction, and poor prior samples. What single next check would distinguish useful input information from prior mismatch?
 #

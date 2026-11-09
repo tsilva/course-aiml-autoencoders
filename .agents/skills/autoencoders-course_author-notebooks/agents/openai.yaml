@@ -1,0 +1,4 @@
+interface:
+  display_name: "Author course notebooks"
+  short_description: "Build small, interactive autoencoder lesson cells"
+  default_prompt: "Use $autoencoders-course_author-notebooks to refactor a course lesson using Lesson 01 as the reference."

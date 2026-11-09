@@ -1,5 +1,5 @@
 ---
-name: validate-colab-notebooks
+name: autoencoders-course_validate-colab-notebooks
 description: Validate all course notebooks, or a specified lesson, in a real Google Colab runtime, checking complete execution and expected numerical and visual learning results. Use for Colab compatibility checks and notebook verification in this repository.
 ---
 
@@ -21,9 +21,9 @@ uv run --frozen python scripts/build_notebooks.py --check
 Generate a self-contained validation notebook and provenance manifest:
 
 ```sh
-uv run --frozen python .agents/skills/validate-colab-notebooks/scripts/prepare_validation.py
+uv run --frozen python .agents/skills/autoencoders-course_validate-colab-notebooks/scripts/prepare_validation.py
 # Single lesson; also accepts 02-linear-ae.ipynb or its repository path:
-uv run --frozen python .agents/skills/validate-colab-notebooks/scripts/prepare_validation.py --notebook 02
+uv run --frozen python .agents/skills/autoencoders-course_validate-colab-notebooks/scripts/prepare_validation.py --notebook 02
 ```
 
 The helper prints paths under ignored `runs/colab-validation/`. It embeds the
@@ -31,16 +31,16 @@ selected generated notebooks, current Python sources, recipes, and curriculum.
 This tests unpublished working-tree changes without a push. Retain the manifest's
 SHA-256 fingerprint; HEAD alone does not identify uncommitted changes.
 
-The harness runs the notebooks' shared first setup cell in an empty Colab session,
-then replaces the fetched course code/configuration with the embedded snapshot.
+The harness runs the course setup script in an empty Colab session, then
+replaces the fetched course code and configuration with the embedded snapshot.
 It executes every original code cell in order with fresh lesson globals, sharing
 matching training runs only within this validation session. It records outputs,
-cell counts, failures, environment versions, and source hashes. The helper refuses
-different setup cells: validate those lessons separately so each bootstrap is tested.
+cell counts, failures, environment versions, and source hashes. Each lesson's
+setup cell runs against the prepared checkout.
 
 ## Run in actual Colab
 
-Use the native Codex in-app Browser and its documented browser runtime. Read
+Follow the global Browser Use and Testing policy. Read
 [references/browser-workflow.md](references/browser-workflow.md) for upload,
 runtime controls, and evidence collection. Local execution or a mocked
 `google.colab` import is useful preflight, but does not establish a Colab pass.

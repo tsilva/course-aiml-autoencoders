@@ -42,12 +42,16 @@ def render_notebook(source_path: Path) -> str:
         },
     }
     for index, cell in enumerate(notebook.cells):
-        cell.id = _cell_id(source_path.name, index, cell)
         tags = sorted(set(cell.metadata.get("tags", [])))
         cell.metadata = {"tags": tags} if tags else {}
         if cell.cell_type == "code":
+            if "course-setup" in tags:
+                cell.source = "# @title Set up the course\n" + cell.source
+                cell.metadata["cellView"] = "form"
+                cell.metadata["jupyter"] = {"source_hidden": True}
             cell.execution_count = None
             cell.outputs = []
+        cell.id = _cell_id(source_path.name, index, cell)
     rendered = nbformat.writes(notebook, version=4)
     return rendered.rstrip() + "\n"
 

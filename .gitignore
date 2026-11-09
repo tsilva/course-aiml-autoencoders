@@ -13,3 +13,5 @@ runs/
 wandb/
 *.pt
 *.pth
+/INBOX.md
+/.local/repo-inbox/

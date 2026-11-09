@@ -2,7 +2,10 @@
 
 Load the bundled Browser skill/runtime and initialize its documented
 `browser-client` through the persistent Node REPL. Select
-`agent.browsers.get("iab")`. Discover the installed runtime instead of hard-coding
+`agent.browsers.get("brave")` and use Brave Stable’s Agents profile unless the user
+explicitly requests another browser. If Brave is unavailable, report the connection
+problem and ask the user to restore it; do not substitute another browser.
+Discover the installed runtime instead of hard-coding
 a plugin cache version. Use documented Browser APIs and visible UI state.
 
 If a Colab tab already exists, keep the user's notebook intact and use a new tab
@@ -11,7 +14,7 @@ in the connected Colab account; do not share it or modify sharing permissions.
 
 ## Upload and run
 
-1. Open `https://colab.research.google.com/` in the in-app browser.
+1. Open `https://colab.research.google.com/` in the configured agent browser.
 2. Use **File → Upload notebook → Browse** and the browser file-chooser API to
    select the helper's generated `.ipynb` from its absolute local path.
 3. Connect to a fresh default CPU runtime. If this copy already has state, use

@@ -10,10 +10,12 @@ You need basic Python, arrays/tensors, and the idea that training adjusts
 weights to reduce an error. Probability and gradient details arrive when they
 help explain behavior. Python 3.11–3.13 and uv are required.
 
-For Colab, use the [curriculum badges](../README.md#curriculum) and choose
-**Runtime → Run all**. Each notebook fetches the course code automatically;
-no extra setup cell is needed. Use its **Open in Colab** link for the next lesson.
-Colab's runtime storage is temporary.
+For Colab, use the [curriculum badges](../README.md#curriculum) and run
+**Set up the course** first. This collapsed cell fetches the course code and
+shows the tools used in the lesson. Run the remaining cells in order and
+pause at **🧪 Try** prompts to change a value and inspect the result. Use
+the **Open in Colab** link for the next lesson. Colab's runtime storage is
+temporary.
 
 For local use, run from the repository root:
 
@@ -157,3 +159,7 @@ Notebook conversion is deterministic and output-free. Execution creates your
 own evidence; it never overwrites the distributed notebooks. Explicit lesson
 sets work independently: prerequisite experiments are created or reused by
 configuration when required.
+
+## License
+
+[MIT License](../LICENSE).

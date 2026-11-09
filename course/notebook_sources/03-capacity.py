@@ -12,7 +12,7 @@
 # ---
 
 # %% [markdown]
-# # Lesson 03 — Let the reconstruction sheet bend
+# # 🧪 Lesson 03 — Let the reconstruction sheet bend
 #
 # **Learning objective:** separate nonlinear geometry from bottleneck size.
 #
@@ -23,62 +23,41 @@
 # not the isolated effect of an activation function.
 
 # %% [markdown]
-# ## Setup
+# ## ⚙️ Setup
 #
-# Run this cell first. In Colab it fetches the course code automatically;
-# locally it uses your checkout. The lessons use short CPU experiments.
+# Run **Set up the course** once per session to load the tools below.
+# To inspect an intermediate value, put its name on the last line of
+# its cell and rerun the cell.
 
-# %%
-import os
+# %% tags=["course-setup"]
 from pathlib import Path
-import subprocess
-import sys
+from runpy import run_path
+from subprocess import run
 
-# Find an existing checkout before fetching one in a fresh Colab session.
-_start = Path.cwd().resolve()
-_course_root = next((
-    candidate for candidate in (_start, *_start.parents)
-    if (candidate / "course/curriculum.yaml").is_file()
-    and (candidate / "src/course_aiml_autoencoders").is_dir()
-), None)
-if _course_root is None:
-    try:
-        import google.colab
-    except ImportError as error:
-        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
-    _course_root = _start / "course-aiml-autoencoders"
-    if not _course_root.exists():
-        subprocess.run([
-            "git", "clone", "--depth", "1", "--branch", "main",
-            "https://github.com/tsilva/course-aiml-autoencoders.git",
-            str(_course_root),
-        ], check=True)
-    if not (_course_root / "course/curriculum.yaml").is_file():
-        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
-os.chdir(_course_root)
-_course_src = str(_course_root / "src")
-if _course_src not in sys.path:
-    sys.path.insert(0, _course_src)
-print("Course ready:", _course_root)
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
 
-# %%
-import matplotlib.pyplot as plt
-import torch
-from IPython.display import Image, display
-from course_aiml_autoencoders.config import load_yaml, with_overrides
-from course_aiml_autoencoders.course import (
-    balanced_class_batch, learn, learn_prior, lesson_config,
-    load_metrics, load_run_summary, load_trained_model,
-    plot_metric_history, repository_root,
-)
-from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import (
-    per_example_mse, plot_image_grid, plot_reconstruction_grid,
-)
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
 
-ROOT = repository_root()
-torch.manual_seed(0)
-PROFILE = "quick"
+from IPython.display import Markdown, display
+from course_aiml_autoencoders.course import learn
+from course_aiml_autoencoders.course import load_run_summary
+from course_aiml_autoencoders.course.notebook_views import show_run_figure
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `learn` | Trains a recipe or reuses an exact matching run. |
+| `load_run_summary` | Reads recorded validation results and run metadata. |
+| `show_run_figure` | Displays a diagnostic saved by the selected run. |
+"""))
 
 # %% [markdown]
 # The default uses eight CPU epochs on 2,048 training images and 512 held-out
@@ -90,7 +69,7 @@ PROFILE = "quick"
 # creates fresh evidence. You can return to the prediction while training runs.
 
 # %% [markdown]
-# ## Predict before running
+# ## 🔮 Predict before running
 #
 # With eight sliders in both models, can nonlinear layers still improve reconstruction?
 #
@@ -100,14 +79,80 @@ PROFILE = "quick"
 # Yes: the mapping can represent more complex structure at the same latent dimension. Improvement is empirical, and added parameters also contribute.
 # </details>
 
+# %% [markdown]
+# ## 1. 🏋️ Run the linear control
+
 # %%
+# Use the quick training budget.
+PROFILE = "quick"
+
+# Run this recipe or reuse matching evidence.
 linear_dir = learn("recipes/ae/ae-001-linear.yaml", profile=PROFILE)
+
+# %% [markdown]
+# ## 2. 🏋️ Run the nonlinear variant
+
+# %%
+# Run this recipe or reuse matching evidence.
 nonlinear_dir = learn("recipes/ae/ae-002-nonlinear.yaml", profile=PROFILE)
-for name, run_dir in (("linear", linear_dir), ("nonlinear", nonlinear_dir)):
+
+# %% [markdown]
+# ## 3. 📊 Compare held-out MSE and model size
+
+# %%
+# Name the runs to compare.
+runs = (("linear", linear_dir), ("nonlinear", nonlinear_dir))
+
+# Read the same evidence from each run.
+for name, run_dir in runs:
+
+    # Open the run summary.
     summary = load_run_summary(run_dir)
-    print(name, "MSE:", summary["best_validation_metrics"]["validation/reconstruction_loss"],
-          "parameters:", summary["parameter_count"])
-    display(Image(filename=str(run_dir / "figures/reconstructions.png")))
+
+    # Select the held-out metrics.
+    metrics = summary["best_validation_metrics"]
+
+    # Read MSE.
+    mse = metrics["validation/reconstruction_loss"]
+
+    # Read parameter count.
+    parameters = summary["parameter_count"]
+
+    # Print the scores together.
+    print(name, "MSE:", mse, "parameter count:", parameters)
+
+# %% [markdown]
+# ## 4. 🖼️ Inspect the linear reconstruction
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(linear_dir, "reconstructions.png")
+
+# %% [markdown]
+# ## 5. 🖼️ Inspect the nonlinear reconstruction
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(nonlinear_dir, "reconstructions.png")
+
+# %% [markdown]
+# ## 6. 🔁 Switch between the same examples
+#
+# 🧪 **Try** setting `selected_run` to `"nonlinear"` and rerunning this cell.
+# Compare the same garment and look for one edge that changes.
+
+# %%
+# Group the runs by their labels.
+gallery_runs = {"linear": linear_dir, "nonlinear": nonlinear_dir}
+
+# Choose which result to view.
+selected_run = "linear"
+
+# Look up the exact run for this label.
+gallery_run = gallery_runs[selected_run]
+
+# Display the selected run's figure.
+show_run_figure(gallery_run, "reconstructions.png")
 
 # %% [markdown]
 # Compare the same validation examples. Did edges or class-specific shape
@@ -119,7 +164,7 @@ for name, run_dir in (("linear", linear_dir), ("nonlinear", nonlinear_dir)):
 # the pressure to find a compact summary.
 
 # %% [markdown]
-# ## Advancement gate — transfer check
+# ## ✅ Advancement gate — transfer check
 #
 # A 128-dimensional model beats an eight-dimensional one. Is it the better representation?
 #
@@ -141,4 +186,4 @@ for name, run_dir in (("linear", linear_dir), ("nonlinear", nonlinear_dir)):
 # </details>
 
 # %% [markdown]
-# **Next:** [Lesson 04](04-regularized-ae.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/04-regularized-ae.ipynb). No worksheet is required.
+# ➡️ **Next:** [Lesson 04](04-regularized-ae.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/04-regularized-ae.ipynb). No worksheet is required.

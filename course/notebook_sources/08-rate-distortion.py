@@ -12,7 +12,7 @@
 # ---
 
 # %% [markdown]
-# # Lesson 08 — Change the price of information
+# # 🧪 Lesson 08 — Change the price of information
 #
 # **Learning objective:** interpret beta through a reconstruction/prior tradeoff.
 #
@@ -21,62 +21,49 @@
 # split, optimizer, and training budget; change only beta.
 
 # %% [markdown]
-# ## Setup
+# ## ⚙️ Setup
 #
-# Run this cell first. In Colab it fetches the course code automatically;
-# locally it uses your checkout. The lessons use short CPU experiments.
+# Run **Set up the course** once per session to load the tools below.
+# To inspect an intermediate value, put its name on the last line of
+# its cell and rerun the cell.
 
-# %%
-import os
+# %% tags=["course-setup"]
 from pathlib import Path
-import subprocess
-import sys
+from runpy import run_path
+from subprocess import run
 
-# Find an existing checkout before fetching one in a fresh Colab session.
-_start = Path.cwd().resolve()
-_course_root = next((
-    candidate for candidate in (_start, *_start.parents)
-    if (candidate / "course/curriculum.yaml").is_file()
-    and (candidate / "src/course_aiml_autoencoders").is_dir()
-), None)
-if _course_root is None:
-    try:
-        import google.colab
-    except ImportError as error:
-        raise RuntimeError("Open this notebook from the course checkout or in Google Colab.") from error
-    _course_root = _start / "course-aiml-autoencoders"
-    if not _course_root.exists():
-        subprocess.run([
-            "git", "clone", "--depth", "1", "--branch", "main",
-            "https://github.com/tsilva/course-aiml-autoencoders.git",
-            str(_course_root),
-        ], check=True)
-    if not (_course_root / "course/curriculum.yaml").is_file():
-        raise RuntimeError(f"Incomplete course checkout at {_course_root}; rename it and rerun setup.")
-os.chdir(_course_root)
-_course_src = str(_course_root / "src")
-if _course_src not in sys.path:
-    sys.path.insert(0, _course_src)
-print("Course ready:", _course_root)
+setup_file = Path("course/notebook_sources/_setup.py")
+here = Path.cwd()
+checkout = next((root for root in (here, *here.parents) if (root / setup_file).is_file()), None)
+if checkout is None:
+    import google.colab
 
-# %%
-import matplotlib.pyplot as plt
-import torch
-from IPython.display import Image, display
-from course_aiml_autoencoders.config import load_yaml, with_overrides
-from course_aiml_autoencoders.course import (
-    balanced_class_batch, learn, learn_prior, lesson_config,
-    load_metrics, load_run_summary, load_trained_model,
-    plot_metric_history, repository_root,
-)
-from course_aiml_autoencoders.data import build_dataloaders, class_names
-from course_aiml_autoencoders.diagnostics import (
-    per_example_mse, plot_image_grid, plot_reconstruction_grid,
-)
+    checkout = here / "course-aiml-autoencoders"
+    if not checkout.exists():
+        run(["git", "clone", "--depth", "1", "--branch", "main",
+             "https://github.com/tsilva/course-aiml-autoencoders.git", str(checkout)], check=True)
+run_path(str(checkout / setup_file))
 
-ROOT = repository_root()
-torch.manual_seed(0)
-PROFILE = "quick"
+from IPython.display import Markdown, display
+from course_aiml_autoencoders.course import learn
+from course_aiml_autoencoders.course import load_run_summary
+from course_aiml_autoencoders.course import repository_root
+from course_aiml_autoencoders.config import load_yaml
+from course_aiml_autoencoders.config import with_overrides
+from course_aiml_autoencoders.course.notebook_views import show_run_figure
+from course_aiml_autoencoders.course.notebook_views import plot_rate_distortion
+
+display(Markdown("""
+| Tool | What it does in this lesson |
+| --- | --- |
+| `learn` | Trains a recipe or reuses an exact matching run. |
+| `load_run_summary` | Reads recorded validation results and run metadata. |
+| `repository_root` | Finds the course checkout so recipe paths work from any notebook folder. |
+| `load_yaml` | Reads the experiment recipe. |
+| `with_overrides` | Copies a recipe with a named setting changed. |
+| `show_run_figure` | Displays a diagnostic saved by the selected run. |
+| `plot_rate_distortion` | Plots reconstruction cost against raw KL for each observed beta. |
+"""))
 
 # %% [markdown]
 # The default uses eight CPU epochs on 2,048 training images and 512 held-out
@@ -88,7 +75,7 @@ PROFILE = "quick"
 # creates fresh evidence. You can return to the prediction while training runs.
 
 # %% [markdown]
-# ## Predict before running
+# ## 🔮 Predict before running
 #
 # If beta rises from 1 to 4, which should usually decrease: reconstruction error or raw KL?
 #
@@ -98,27 +85,108 @@ PROFILE = "quick"
 # Raw KL should tend to decrease. Reconstruction error may rise because retaining input-specific detail costs more. Optimization can violate the trend.
 # </details>
 
+# %% [markdown]
+# ## 1. ⚙️ Set up a beta comparison
+#
+# 🧪 **Try** changing `higher_beta` to `2.0`. Rerun this cell and the
+# subsequent experiment cells to see how the tradeoff moves.
+
 # %%
-base = load_yaml(ROOT / "recipes/vae/vae-001-basic.yaml")
-expensive = with_overrides(base, {"objective.beta": 4.0})
-expensive["id"] = "vae/vae-beta-4"
+# Use the quick training budget.
+PROFILE = "quick"
+
+# Find the course root.
+root = repository_root()
+
+# Locate the beta-one recipe.
+recipe_path = root / "recipes/vae/vae-001-basic.yaml"
+
+# Read the control recipe.
+base = load_yaml(recipe_path)
+
+# Choose the higher beta.
+higher_beta = 4.0
+
+# Change only the KL weight.
+expensive = with_overrides(base, {"objective.beta": higher_beta})
+
+# Name the variant by its weight.
+expensive["id"] = f"vae/vae-beta-{higher_beta:g}"
+
+# Show the two beta values.
+print(f"Comparing beta 1 with beta {higher_beta:g}")
+
+# %% [markdown]
+# ## 2. 🏋️ Run the beta-one control
+
+# %%
+# Train or reuse the reference run.
+base_dir = learn(base, profile=PROFILE)
+
+# %% [markdown]
+# ## 3. 🏋️ Run the higher-beta variant
+
+# %%
+# Train or reuse the altered KL weight.
+higher_dir = learn(expensive, profile=PROFILE)
+
+# %% [markdown]
+# ## 4. 📊 Collect the two points
+
+# %%
+# Pair each beta with its run.
+runs = ((1.0, base_dir), (higher_beta, higher_dir))
+
+# Start an empty list of points.
 observations = []
-for beta, recipe in ((1.0, base), (4.0, expensive)):
-    run_dir = learn(recipe, profile=PROFILE)
+
+# Read both runs.
+for beta, run_dir in runs:
+
+    # Open this run's summary.
     summary = load_run_summary(run_dir)
+
+    # Select the validation metrics.
     metrics = summary["best_validation_metrics"]
-    rate, distortion = metrics["validation/kl_loss"], metrics["validation/reconstruction_loss"]
+
+    # Read raw KL for the rate axis.
+    rate = metrics["validation/kl_loss"]
+
+    # Read reconstruction BCE for the distortion axis.
+    distortion = metrics["validation/reconstruction_loss"]
+
+    # Read the latent diagnostics.
+    latent_summary = summary["vae_latent"]
+
+    # Read the count of dimensions above the KL threshold.
+    active = latent_summary["active_dimensions"]
+
+    # Save one point for this beta.
     observations.append((beta, rate, distortion))
-    print("beta", beta, "raw KL", rate, "reconstruction BCE", distortion,
-          "KL-threshold dimensions", summary["vae_latent"]["active_dimensions"])
-    display(Image(filename=str(run_dir / "figures/random-latent-samples.png")))
-for beta, rate, distortion in observations:
-    plt.scatter(rate, distortion)
-    plt.annotate(f"beta={beta:g}", (rate, distortion))
-plt.xlabel("Raw KL, nats/image")
-plt.ylabel("Center-decoded reconstruction BCE/image")
-plt.title("Two observed tradeoffs; short runs, not an optimal frontier")
-plt.show()
+
+    # Report both loss terms and the diagnostic count.
+    print("beta", beta, "raw KL", rate, "reconstruction BCE", distortion, "KL-threshold dimensions", active)
+
+# %% [markdown]
+# ## 5. 📉 Plot the observed tradeoff
+
+# %%
+# Plot the two points with their beta labels.
+plot_rate_distortion(observations)
+
+# %% [markdown]
+# ## 6. 🎲 Inspect the control samples
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(base_dir, "random-latent-samples.png")
+
+# %% [markdown]
+# ## 7. 🎲 Inspect the higher-beta samples
+
+# %%
+# Display the diagnostic from this run.
+show_run_figure(higher_dir, "random-latent-samples.png")
 
 # %% [markdown]
 # A point toward the left uses less posterior-to-prior KL; a point lower down
@@ -128,7 +196,7 @@ plt.show()
 # beta changes what they mean.
 
 # %% [markdown]
-# ## Advancement gate — transfer check
+# ## ✅ Advancement gate — transfer check
 #
 # The beta-four model has a lower total loss but worse reconstruction. Is it the winner?
 #
@@ -149,4 +217,4 @@ plt.show()
 # </details>
 
 # %% [markdown]
-# **Next:** [Lesson 09](09-collapse.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/09-collapse.ipynb). No worksheet is required.
+# ➡️ **Next:** [Lesson 09](09-collapse.ipynb) · [Open in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/09-collapse.ipynb). No worksheet is required.
