@@ -9,7 +9,7 @@
 Learn autoencoders, VAEs, and VQ-VAEs through 14 executable Python notebooks.
 Predict what an experiment will do, run it, and inspect the result.
 
-## Start the course
+## Curriculum
 
 [Open Lesson 00 in Colab](https://colab.research.google.com/github/tsilva/course-aiml-autoencoders/blob/main/course/notebooks/00-laboratory.ipynb).
 Run **Set up the course**, then follow the encoder, bottleneck and decoder
